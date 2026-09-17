@@ -8,16 +8,15 @@ export async function POST(request: Request) {
 
     const endpoint = process.env.GBK_AI_API_URL
     const apiKey = process.env.GBK_AI_API_KEY
-    if (!endpoint || !apiKey) {
-      return NextResponse.json({ error: 'GBK AI API is not configured yet.' }, { status: 503 })
-    }
+    if (!endpoint) return NextResponse.json({ error: 'GBK AI API URL is not configured yet.' }, { status: 503 })
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: `You are helping users search GBK AI Marketplace. User request: ${query}`, language: 'en-US' }),
-      cache: 'no-store',
-    })
+    const form = new FormData()
+    form.append('message', `You are helping users search GBK AI Marketplace. User request: ${query}. Give a concise helpful marketplace-oriented response. Do not invent specific businesses, prices, availability, or ratings.`)
+    form.append('language', 'en-US')
+
+    const headers:HeadersInit={}
+    if(apiKey) headers.Authorization=`Bearer ${apiKey}`
+    const response = await fetch(endpoint, { method:'POST', headers, body:form, cache:'no-store' })
     const data = await response.json().catch(() => ({}))
     if (!response.ok) return NextResponse.json({ error: data?.error || 'GBK AI service returned an error.' }, { status: response.status })
     return NextResponse.json({ answer: String(data?.answer || data?.message || data?.response || 'GBK AI processed your marketplace request.') })
