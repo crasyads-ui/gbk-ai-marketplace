@@ -5,20 +5,13 @@ async function readJson(r:Response){const d=await r.json().catch(()=>({}));if(!r
 export async function submitListingRequest(data:any){const r=await supabaseRequest('/rest/v1/marketplace_listing_requests',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(data)});if(!r.ok)throw new Error('Unable to submit listing request')}
 export async function signIn(email:string,password:string){return readJson(await supabaseRequest('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})}))}
 export async function signUp(email:string,password:string){return readJson(await supabaseRequest('/auth/v1/signup',{method:'POST',body:JSON.stringify({email,password})}))}
-export async function getApprovedListings(){return readJson(await supabaseRequest('/rest/v1/marketplace_listings?select=*,marketplace_categories(name,icon)&status=eq.approved&order=created_at.desc'))}
+export async function getApprovedListings(){return readJson(await supabaseRequest('/rest/v1/marketplace_listings?select=*,marketplace_categories(name,icon)&status=eq.approved&order=featured.desc,created_at.desc&limit=200'))}
 export async function aiMarketplaceSearch(query:string){
-  const all=await getApprovedListings()
-  const q=query.trim().toLowerCase()
-  if(!q)return all
-  const words=q.replace(/[^a-z0-9₹$€£]+/g,' ').split(/\s+/).filter(w=>w.length>1)
-  const categoryWords:any={restaurant:'Food',restaurants:'Food',food:'Food',cafe:'Food',hotel:'Travel',hotels:'Travel',travel:'Travel',tour:'Travel',tours:'Travel',plot:'Property',plots:'Property',property:'Property',house:'Property',real:'Property',repair:'Services',service:'Services',services:'Services',ac:'Services',shopping:'Shopping',shop:'Shopping',store:'Shopping',stores:'Shopping',product:'Shopping',products:'Shopping',ai:'Digital',digital:'Digital',tools:'Digital'}
-  const wantedCategories=new Set(words.map(w=>categoryWords[w]).filter(Boolean))
-  return all.filter((x:any)=>{
-    const hay=`${x.business_name||''} ${x.title||''} ${x.description||''} ${x.city||''} ${x.country||''} ${x.marketplace_categories?.name||''}`.toLowerCase()
-    const categoryMatch=wantedCategories.size===0 || wantedCategories.has(x.marketplace_categories?.name)
-    const wordMatch=words.some(w=>hay.includes(w))
-    return categoryMatch && (wordMatch || wantedCategories.size>0)
-  }).slice(0,30)
+ const all=await getApprovedListings();const q=query.trim().toLowerCase();if(!q)return all
+ const words=q.replace(/[^a-z0-9₹$€£]+/gi,' ').split(/\s+/).filter(w=>w.length>1)
+ const categoryWords:any={restaurant:'Food',restaurants:'Food',food:'Food',cafe:'Food',cafes:'Food',dining:'Food',hotel:'Travel',hotels:'Travel',travel:'Travel',tour:'Travel',tours:'Travel',tourism:'Travel',holiday:'Travel',plot:'Property',plots:'Property',property:'Property',properties:'Property',real:'Property',estate:'Property',house:'Property',apartment:'Property',apartments:'Property',repair:'Services',service:'Services',services:'Services',ac:'Services',shopping:'Shopping',shop:'Shopping',store:'Shopping',stores:'Shopping',product:'Shopping',products:'Shopping',ai:'Digital',digital:'Digital',tools:'Digital',tool:'Digital'}
+ const wantedCategories=new Set(words.map(w=>categoryWords[w]).filter(Boolean))
+ return all.map((x:any)=>{const hay=`${x.business_name||''} ${x.title||''} ${x.description||''} ${x.city||''} ${x.country||''} ${x.marketplace_categories?.name||''}`.toLowerCase();const cat=String(x.marketplace_categories?.name||'').toLowerCase();const categoryMatch=[...wantedCategories].some((c:any)=>cat.includes(String(c).toLowerCase()))||wantedCategories.size===0;const wordMatch=words.some(w=>hay.includes(w));let score=(categoryMatch&&wantedCategories.size?10:0)+(wordMatch?3:0);if((x.city||'').toLowerCase().includes(q))score+=10;if((x.country||'').toLowerCase().includes(q))score+=8;return {x,score}}).filter((v:any)=>v.score>0).sort((a:any,b:any)=>b.score-a.score).slice(0,30).map((v:any)=>v.x)
 }
 export async function getListing(id:string){const d=await readJson(await supabaseRequest(`/rest/v1/marketplace_listings?select=*,marketplace_categories(name,icon)&id=eq.${encodeURIComponent(id)}&limit=1`));return d[0]||null}
 export async function getMyListings(token:string){return readJson(await supabaseRequest('/rest/v1/marketplace_listings?select=*&order=created_at.desc',{headers:{Prefer:'return=representation'}},token))}
