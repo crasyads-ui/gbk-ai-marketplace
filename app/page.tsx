@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import InstallPWA from './InstallPWA'
 
 const categories = [
   {name:'Food & Restaurants', icon:'🍴', tag:'Food'},
@@ -42,6 +43,7 @@ export default function Home() {
       <div className="brand"><span className="logo">GBK</span><span>AI Marketplace</span></div>
       <div className="links"><a href="#explore">Explore</a><a href="#categories">Categories</a><a href="#business">For Business</a><button onClick={() => setShowBusiness(true)}>Sign in</button></div>
     </header>
+    <InstallPWA />
 
     <section className="hero">
       <div className="hero-inner">
