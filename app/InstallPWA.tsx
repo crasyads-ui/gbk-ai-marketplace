@@ -19,7 +19,9 @@ export default function InstallPWA() {
     window.addEventListener('beforeinstallprompt', handler)
     window.addEventListener('appinstalled', () => setInstallEvent(null))
 
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {})
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {})
+    }
 
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
