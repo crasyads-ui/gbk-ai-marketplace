@@ -6,7 +6,20 @@ export async function submitListingRequest(data:any){const r=await supabaseReque
 export async function signIn(email:string,password:string){return readJson(await supabaseRequest('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})}))}
 export async function signUp(email:string,password:string){return readJson(await supabaseRequest('/auth/v1/signup',{method:'POST',body:JSON.stringify({email,password})}))}
 export async function getApprovedListings(){return readJson(await supabaseRequest('/rest/v1/marketplace_listings?select=*,marketplace_categories(name,icon)&status=eq.approved&order=created_at.desc'))}
-export async function aiMarketplaceSearch(query:string){const q=encodeURIComponent(query.trim());return readJson(await supabaseRequest(`/rest/v1/marketplace_listings?select=*,marketplace_categories(name,icon)&status=eq.approved&or=(title.ilike.*${q}*,description.ilike.*${q}*,business_name.ilike.*${q}*,city.ilike.*${q}*,country.ilike.*${q}*)&order=featured.desc,created_at.desc&limit=30`))}
+export async function aiMarketplaceSearch(query:string){
+  const all=await getApprovedListings()
+  const q=query.trim().toLowerCase()
+  if(!q)return all
+  const words=q.replace(/[^a-z0-9₹$€£]+/g,' ').split(/\s+/).filter(w=>w.length>1)
+  const categoryWords:any={restaurant:'Food',restaurants:'Food',food:'Food',cafe:'Food',hotel:'Travel',hotels:'Travel',travel:'Travel',tour:'Travel',tours:'Travel',plot:'Property',plots:'Property',property:'Property',house:'Property',real:'Property',repair:'Services',service:'Services',services:'Services',ac:'Services',shopping:'Shopping',shop:'Shopping',store:'Shopping',stores:'Shopping',product:'Shopping',products:'Shopping',ai:'Digital',digital:'Digital',tools:'Digital'}
+  const wantedCategories=new Set(words.map(w=>categoryWords[w]).filter(Boolean))
+  return all.filter((x:any)=>{
+    const hay=`${x.business_name||''} ${x.title||''} ${x.description||''} ${x.city||''} ${x.country||''} ${x.marketplace_categories?.name||''}`.toLowerCase()
+    const categoryMatch=wantedCategories.size===0 || wantedCategories.has(x.marketplace_categories?.name)
+    const wordMatch=words.some(w=>hay.includes(w))
+    return categoryMatch && (wordMatch || wantedCategories.size>0)
+  }).slice(0,30)
+}
 export async function getListing(id:string){const d=await readJson(await supabaseRequest(`/rest/v1/marketplace_listings?select=*,marketplace_categories(name,icon)&id=eq.${encodeURIComponent(id)}&limit=1`));return d[0]||null}
 export async function getMyListings(token:string){return readJson(await supabaseRequest('/rest/v1/marketplace_listings?select=*&order=created_at.desc',{headers:{Prefer:'return=representation'}},token))}
 export async function getMyListingRequests(token:string){return readJson(await supabaseRequest('/rest/v1/marketplace_listing_requests?select=*&order=created_at.desc',{},token))}
