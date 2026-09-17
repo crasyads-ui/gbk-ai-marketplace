@@ -1,16 +1,9 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { getMyEnquiries, getMyListingRequests, getMyOrders, getMyListings } from '../../lib/supabase'
+
 export default function Dashboard() {
-  return (
-    <main style={{maxWidth:1100,margin:'0 auto',padding:24,fontFamily:'Arial,sans-serif'}}>
-      <a href="/">← GBK AI Marketplace</a>
-      <p style={{letterSpacing:2,fontWeight:700,marginTop:48}}>GBK AI MARKETPLACE</p>
-      <h1>Business Dashboard</h1>
-      <p>Manage your marketplace presence, listings, enquiries and orders.</p>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16,marginTop:32}}>
-        <a href="/" style={{padding:24,border:'1px solid #ddd',borderRadius:20}}>🏪<br/><b>Business listing</b><br/>Create or update your listing.</a>
-        <a href="/" style={{padding:24,border:'1px solid #ddd',borderRadius:20}}>📩<br/><b>Enquiries</b><br/>Manage customer enquiries.</a>
-        <a href="/" style={{padding:24,border:'1px solid #ddd',borderRadius:20}}>🛒<br/><b>Orders</b><br/>Track marketplace orders.</a>
-        <a href="/" style={{padding:24,border:'1px solid #ddd',borderRadius:20}}>⭐<br/><b>Reviews</b><br/>View customer reviews.</a>
-      </div>
-    </main>
-  )
+  const [email,setEmail]=useState(''); const [data,setData]=useState<any>({listings:[],requests:[],enquiries:[],orders:[]}); const [message,setMessage]=useState('')
+  useEffect(()=>{const token=localStorage.getItem('gbk_marketplace_session')||''; setEmail(localStorage.getItem('gbk_marketplace_email')||''); if(!token){setMessage('Please sign in from the marketplace home page first.');return} Promise.all([getMyListings(token),getMyListingRequests(token),getMyEnquiries(token),getMyOrders(token)]).then(([listings,requests,enquiries,orders])=>setData({listings,requests,enquiries,orders})).catch(()=>setMessage('Dashboard data could not be loaded. Please sign in again.'))},[])
+  return <main className="dashboard-page"><header className="nav"><a className="brand" href="/"><span className="logo">GBK</span><span>AI Marketplace</span></a><a className="text-button" href="/">← Marketplace</a></header><section className="section"><span className="eyebrow">ACCOUNT DASHBOARD</span><h1>Welcome{email?`, ${email}`:''}</h1><p>Manage your listings, enquiries, orders and business requests.</p>{message&&<div className="empty"><h3>{message}</h3><a className="primary inline-button" href="/">Go to Marketplace</a></div>}<div className="dashboard-grid"><div className="dashboard-card"><span>🏪</span><strong>{data.listings.length}</strong><small>My listings</small></div><div className="dashboard-card"><span>📨</span><strong>{data.enquiries.length}</strong><small>My enquiries</small></div><div className="dashboard-card"><span>🧾</span><strong>{data.orders.length}</strong><small>Orders</small></div><div className="dashboard-card"><span>⏳</span><strong>{data.requests.length}</strong><small>Listing requests</small></div></div><div className="dashboard-list"><h2>My Listings</h2>{data.listings.length?data.listings.map((x:any)=><div className="row" key={x.id}><div><strong>{x.title}</strong><small>{x.business_name} • {x.city||x.country||'Global'}</small></div><span className="status">{x.status}</span></div>):<p>No listings yet.</p>}</div><div className="dashboard-list"><h2>Listing Requests</h2>{data.requests.length?data.requests.map((x:any)=><div className="row" key={x.id}><div><strong>{x.business_name}</strong><small>{x.category} • {x.city_country}</small></div><span className="status">{x.status}</span></div>):<p>No listing requests yet.</p>}</div><div className="dashboard-list"><h2>My Enquiries</h2>{data.enquiries.length?data.enquiries.map((x:any)=><div className="row" key={x.id}><div><strong>{x.name}</strong><small>{x.message}</small></div><span className="status">{x.status}</span></div>):<p>No enquiries yet.</p>}</div><div className="dashboard-list"><h2>Orders</h2>{data.orders.length?data.orders.map((x:any)=><div className="row" key={x.id}><div><strong>{x.currency} {x.amount}</strong><small>{new Date(x.created_at).toLocaleString()}</small></div><span className="status">{x.status}</span></div>):<p>No orders yet.</p>}</div></section></main>
 }
