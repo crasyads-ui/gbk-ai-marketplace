@@ -5,34 +5,24 @@ import InstallPWA from './InstallPWA'
 import { aiMarketplaceSearch, getApprovedListings, signIn, signUp, submitListingRequest } from '../lib/supabase'
 
 const categories=[{name:'Food & Restaurants',icon:'🍴',tag:'Food'},{name:'Travel & Tourism',icon:'🌍',tag:'Travel'},{name:'Real Estate',icon:'🏡',tag:'Property'},{name:'Local Services',icon:'🔧',tag:'Services'},{name:'Shopping',icon:'🛒',tag:'Shopping'},{name:'AI & Digital Services',icon:'✨',tag:'Digital'}]
-const listings=[{icon:'🍽️',title:'Local Food & Dining',text:'Discover restaurants, cafes and food offers near you.',tag:'Food',keywords:'restaurant cafe food dining',id:undefined},{icon:'✈️',title:'Travel & Tourism',text:'Find stays, tours, experiences and travel services.',tag:'Travel',keywords:'hotel travel tours tourism',id:undefined},{icon:'🏠',title:'Real Estate',text:'Explore properties, plots and trusted local agents.',tag:'Property',keywords:'plots property house real estate',id:undefined},{icon:'🛠️',title:'Local Services',text:'Connect with service providers and professionals.',tag:'Services',keywords:'services repair professionals',id:undefined},{icon:'🛍️',title:'Shopping',text:'Discover local products, stores and special offers.',tag:'Shopping',keywords:'shopping stores products offers',id:undefined},{icon:'🤖',title:'AI & Digital Services',text:'Access AI tools, digital products and business services.',tag:'Digital',keywords:'ai tools digital software',id:undefined}]
+const listings=[{icon:'🍽️',title:'Local Food & Dining',text:'Discover restaurants, cafes and food offers near you.',tag:'Food',keywords:'restaurant cafe food dining hyderabad',id:undefined},{icon:'✈️',title:'Travel & Tourism',text:'Find stays, tours, experiences and travel services.',tag:'Travel',keywords:'hotel travel tours tourism dubai hyderabad',id:undefined},{icon:'🏠',title:'Real Estate',text:'Explore properties, plots and trusted local agents.',tag:'Property',keywords:'plots property house real estate hyderabad',id:undefined},{icon:'🛠️',title:'Local Services',text:'Connect with service providers and professionals.',tag:'Services',keywords:'services repair professionals hyderabad',id:undefined},{icon:'🛍️',title:'Shopping',text:'Discover local products, stores and special offers.',tag:'Shopping',keywords:'shopping stores products offers hyderabad',id:undefined},{icon:'🤖',title:'AI & Digital Services',text:'Access AI tools, digital products and business services.',tag:'Digital',keywords:'ai tools digital software online global',id:undefined}]
 const languages=[
- {name:'English',code:'en-US'},
- {name:'తెలుగు (Telugu)',code:'te-IN'},
- {name:'हिन्दी (Hindi)',code:'hi-IN'},
- {name:'தமிழ் (Tamil)',code:'ta-IN'},
- {name:'ಕನ್ನಡ (Kannada)',code:'kn-IN'},
- {name:'മലയാളം (Malayalam)',code:'ml-IN'},
- {name:'বাংলা (Bengali)',code:'bn-IN'},
- {name:'मराठी (Marathi)',code:'mr-IN'},
- {name:'العربية (Arabic)',code:'ar-SA'},
- {name:'Español (Spanish)',code:'es-ES'},
- {name:'Français (French)',code:'fr-FR'},
- {name:'Deutsch (German)',code:'de-DE'},
- {name:'Português (Portuguese)',code:'pt-PT'},
- {name:'中文 (Chinese)',code:'zh-CN'},
- {name:'日本語 (Japanese)',code:'ja-JP'},
- {name:'한국어 (Korean)',code:'ko-KR'},
- {name:'Русский (Russian)',code:'ru-RU'},
- {name:'Bahasa Indonesia',code:'id-ID'},
- {name:'ไทย (Thai)',code:'th-TH'},
- {name:'Tiếng Việt (Vietnamese)',code:'vi-VN'}
+ {name:'English',code:'en-US'},{name:'తెలుగు (Telugu)',code:'te-IN'},{name:'हिन्दी (Hindi)',code:'hi-IN'},{name:'தமிழ் (Tamil)',code:'ta-IN'},{name:'ಕನ್ನಡ (Kannada)',code:'kn-IN'},{name:'മലയാളം (Malayalam)',code:'ml-IN'},{name:'বাংলা (Bengali)',code:'bn-IN'},{name:'मराठी (Marathi)',code:'mr-IN'},{name:'العربية (Arabic)',code:'ar-SA'},{name:'Español (Spanish)',code:'es-ES'},{name:'Français (French)',code:'fr-FR'},{name:'Deutsch (German)',code:'de-DE'},{name:'Português (Portuguese)',code:'pt-PT'},{name:'中文 (Chinese)',code:'zh-CN'},{name:'日本語 (Japanese)',code:'ja-JP'},{name:'한국어 (Korean)',code:'ko-KR'},{name:'Русский (Russian)',code:'ru-RU'},{name:'Bahasa Indonesia',code:'id-ID'},{name:'ไทย (Thai)',code:'th-TH'},{name:'Tiếng Việt (Vietnamese)',code:'vi-VN'}
 ]
+
+function matchesSearch(text:string,q:string){
+ const query=q.trim().toLowerCase()
+ if(!query)return true
+ const haystack=text.toLowerCase()
+ const tokens=query.split(/[^\p{L}\p{N}₹$]+/u).filter(t=>t.length>1 && !['in','near','for','the','and','with','under','over'].includes(t))
+ if(tokens.length===0)return haystack.includes(query)
+ return tokens.some(token=>haystack.includes(token))
+}
 
 export default function Home(){
  const [query,setQuery]=useState(''),[filter,setFilter]=useState('All'),[showBusiness,setShowBusiness]=useState(false),[showAuth,setShowAuth]=useState(false),[submitted,setSubmitted]=useState(false),[authMode,setAuthMode]=useState<'signin'|'signup'>('signin'),[authMessage,setAuthMessage]=useState(''),[liveListings,setLiveListings]=useState<any[]>([]),[userEmail,setUserEmail]=useState(''),[aiAnswer,setAiAnswer]=useState(''),[aiLoading,setAiLoading]=useState(false),[aiError,setAiError]=useState(''),[listening,setListening]=useState(false),[voiceError,setVoiceError]=useState(''),[speaking,setSpeaking]=useState(false),[selectedLanguage,setSelectedLanguage]=useState('en-US')
  useEffect(()=>{getApprovedListings().then(setLiveListings).catch(()=>setLiveListings([]));setUserEmail(localStorage.getItem('gbk_marketplace_email')||'')},[])
- const filtered=useMemo(()=>{const q=query.trim().toLowerCase();const local=listings.filter(x=>(filter==='All'||x.tag===filter)&&(!q||`${x.title} ${x.text} ${x.keywords}`.toLowerCase().includes(q)));const real=liveListings.map(x=>({icon:'📍',title:x.title||x.business_name,text:x.description||`Discover ${x.business_name} in ${x.city||x.country||'your area'}.`,tag:x.marketplace_categories?.name||'Marketplace',keywords:`${x.business_name} ${x.title} ${x.city||''} ${x.country||''}`,id:x.id})).filter(x=>(filter==='All'||x.tag===filter||x.tag==='Marketplace')&&(!q||`${x.title} ${x.text} ${x.keywords}`.toLowerCase().includes(q)));return [...real,...local]},[query,filter,liveListings])
+ const filtered=useMemo(()=>{const q=query.trim().toLowerCase();const local=listings.filter(x=>(filter==='All'||x.tag===filter)&&matchesSearch(`${x.title} ${x.text} ${x.keywords}`,q));const real=liveListings.map(x=>({icon:'📍',title:x.title||x.business_name,text:x.description||`Discover ${x.business_name} in ${x.city||x.country||'your area'}.`,tag:x.marketplace_categories?.name||'Marketplace',keywords:`${x.business_name} ${x.title} ${x.city||''} ${x.country||''}`,id:x.id})).filter(x=>(filter==='All'||x.tag===filter||x.tag==='Marketplace')&&matchesSearch(`${x.title} ${x.text} ${x.keywords}`,q));return [...real,...local]},[query,filter,liveListings])
  const scrollToExplore=()=>document.getElementById('explore')?.scrollIntoView({behavior:'smooth'})
  async function runAiSearch(text=query){const q=text.trim();if(!q)return;setAiLoading(true);setAiError('');setAiAnswer('');setQuery(q);try{const [ai]=await Promise.all([fetch('/api/ai-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,language:selectedLanguage})}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d?.error||'GBK AI search failed');return d.answer||''}),aiMarketplaceSearch(q).then(data=>{setLiveListings(Array.isArray(data)?data:[])}).catch(()=>[]) ]);setAiAnswer(ai)}catch(err){setAiError(err instanceof Error?err.message:'GBK AI search is unavailable right now.')}finally{setAiLoading(false);scrollToExplore()}}
  function startVoiceSearch(){setVoiceError('');const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;if(!SR){setVoiceError('Voice input is not supported in this browser. Try Chrome or Samsung Internet.');return}try{const recognition=new SR();recognition.lang=selectedLanguage;recognition.continuous=false;recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onstart=()=>setListening(true);recognition.onresult=(event:any)=>{const text=event.results?.[0]?.[0]?.transcript||'';if(text)setQuery(text);if(text)runAiSearch(text)};recognition.onerror=(event:any)=>setVoiceError(event?.error==='not-allowed'?'Microphone permission was denied. Please allow microphone access for market.gbkai.com.':'Voice input could not start. Please try again.');recognition.onend=()=>setListening(false);recognition.start()}catch{setListening(false);setVoiceError('Voice input could not start. Please try again.')}}
