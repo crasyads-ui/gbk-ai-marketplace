@@ -2,7 +2,26 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://yjwgnapymq
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_Y3n5bVO3xveBnyt4LKbCPg_f5ilMSuz'
 export async function supabaseRequest(path:string,options:RequestInit={},token?:string){const headers=new Headers(options.headers);headers.set('apikey',SUPABASE_KEY);headers.set('Content-Type','application/json');if(token)headers.set('Authorization',`Bearer ${token}`);return fetch(`${SUPABASE_URL}${path}`,{...options,headers})}
 async function readJson(r:Response){const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.message||d?.error_description||d?.msg||'Request failed');return d}
-export async function submitListingRequest(data:any){const r=await supabaseRequest('/rest/v1/marketplace_listing_requests',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify(data)});if(!r.ok)throw new Error('Unable to submit listing request')}
+export async function submitListingRequest(data:any){
+ const token=typeof window!=='undefined'?localStorage.getItem('gbk_marketplace_session')||'':''
+ const userId=token?tokenUserId(token):null
+ if(!token||!userId)throw new Error('Please sign in before creating a marketplace listing.')
+ const categoryName=String(data?.category||'').trim()
+ const categoryRows=await readJson(await supabaseRequest(`/rest/v1/marketplace_categories?select=id,name&name=eq.${encodeURIComponent(categoryName)}&limit=1`,{},token))
+ const categoryId=categoryRows?.[0]?.id||null
+ const businessName=String(data?.business_name||'').trim()
+ const location=String(data?.city_country||'').trim()
+ const contact=String(data?.contact||'').trim()
+ const email=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)?contact:null
+ const phone=email?null:contact
+ const title=String(data?.title||'').trim()||`${businessName} — ${categoryName}`
+ const description=String(data?.description||'').trim()||`${businessName} offers ${categoryName.toLowerCase()} products and services. Discover this business on GBK AI Marketplace.`
+ const parts=location.split(',').map((x:string)=>x.trim()).filter(Boolean)
+ const city=parts[0]||null
+ const country=parts.length>1?parts.slice(1).join(', '):null
+ const payload={owner_id:userId,category_id:categoryId,business_name:businessName,title,description,city,country,phone,email,website:String(data?.website||'').trim()||null,price_from:data?.price_from??null,currency:String(data?.currency||'USD'),image_url:String(data?.image_url||'').trim()||null,status:'pending',featured:false,verified:false}
+ return readJson(await supabaseRequest('/rest/v1/marketplace_listings',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)},token)).then(rows=>rows?.[0]||rows)
+}
 export async function signIn(email:string,password:string){return readJson(await supabaseRequest('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email,password})}))}
 export async function signUp(email:string,password:string){return readJson(await supabaseRequest('/auth/v1/signup',{method:'POST',body:JSON.stringify({email,password})}))}
 export async function getApprovedListings(){return readJson(await supabaseRequest('/rest/v1/marketplace_listings?select=*,marketplace_categories(name,icon)&status=eq.approved&order=featured.desc,created_at.desc&limit=200'))}
