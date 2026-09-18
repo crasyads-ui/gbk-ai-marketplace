@@ -27,3 +27,4 @@ export async function removeFavorite(listingId:string,userId:string,token:string
 export function tokenUserId(token:string){try{const p=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));return p.sub||null}catch{return null}}
 export async function adminListPendingListings(token:string){const r=await supabaseRequest('/rest/v1/rpc/marketplace_admin_list_pending',{method:'POST',body:'{}'},token);return readJson(r)}
 export async function adminUpdateListing(id:string,status:string,verified=false,featured=false,token:string){const r=await supabaseRequest('/rest/v1/rpc/marketplace_admin_update_listing',{method:'POST',body:JSON.stringify({p_listing_id:id,p_status:status,p_verified:verified,p_featured:featured})},token);return readJson(r)}
+export async function getPlatformFees(){return readJson(await supabaseRequest('/rest/v1/marketplace_platform_fee_settings?select=fee_currency,fee_percent,enabled&order=fee_currency.asc'))}
