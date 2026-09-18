@@ -14,7 +14,7 @@ const defaultTasks:Task[]=[
 {id:'review',time:'21:30',title:'Review completed & pending tasks',category:'Planning',status:'pending'},
 {id:'sleep',time:'22:00',title:'Good night / sleep',category:'Wellness',status:'pending'}
 ]
-const tripNeeds=[
+const tripNeeds:[string,string,string][]=[
 ['Before departure','✈️ Transport tickets','Book Hyderabad → Delhi travel and keep confirmation in one place.'],
 ['Before departure','🏨 Stay','Find and book accommodation near the destination.'],
 ['Before departure','🚕 Airport / station transfer','Arrange pickup and return transfer.'],
@@ -33,7 +33,7 @@ export default function Life(){
  useEffect(()=>{localStorage.setItem(key(),JSON.stringify(tasks))},[tasks])
  const done=tasks.filter(x=>x.status==='done').length
  function toggle(id:string){setTasks(v=>v.map(x=>x.id===id?{...x,status:x.status==='done'?'pending':'done'}:x))}
- function add(){if(!custom.trim())return;setTasks(v=>[...v,{id:crypto.randomUUID(),time:customTime,title:custom.trim(),category:'Personal',status:'pending'}].sort((a,b)=>a.time.localeCompare(b.time)));setCustom('')}
+ function add(){if(!custom.trim())return;setTasks(v=>[...v,{id:crypto.randomUUID(),time:customTime,title:custom.trim(),category:'Personal',status:'pending' as const}].sort((a,b)=>a.time.localeCompare(b.time)));setCustom('')}
  function reset(){setTasks(defaultTasks)}
  function openSearch(text:string){window.location.href='/?q='+encodeURIComponent(text)}
  function enableAlerts(){if(typeof Notification==='undefined'){setAlert(false);return}Notification.requestPermission().then(p=>setAlert(p==='granted'))}
