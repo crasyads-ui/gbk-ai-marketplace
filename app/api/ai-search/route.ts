@@ -1,16 +1,29 @@
 import { NextResponse } from 'next/server'
 
-function fallbackAnswer(query: string, language: string) {
+function classify(query: string) {
   const q = query.toLowerCase()
-  const category =
-    /restaurant|food|cafe|dining|meal/.test(q) ? 'Food & Restaurants' :
-    /hotel|travel|tour|flight|holiday|trip/.test(q) ? 'Travel & Tourism' :
-    /plot|property|real estate|house|land/.test(q) ? 'Real Estate' :
-    /repair|service|plumb|electric|clean|salon/.test(q) ? 'Local Services' :
-    /shop|store|product|buy|price/.test(q) ? 'Shopping' :
-    /ai|software|digital|tool|app/.test(q) ? 'AI & Digital Services' :
-    'GBK AI Marketplace'
+  if (/restaurant|food|cafe|dining|meal|dinner|lunch/.test(q)) return 'Food & Restaurants'
+  if (/hotel|travel|tour|flight|holiday|trip|stay|airport/.test(q)) return 'Travel & Tourism'
+  if (/plot|property|real estate|house|land|rent|villa|apartment/.test(q)) return 'Real Estate'
+  if (/repair|service|plumb|electric|clean|salon|ac|maintenance/.test(q)) return 'Local Services'
+  if (/shop|store|product|buy|price|laptop|phone|computer/.test(q)) return 'Shopping'
+  if (/ai|software|digital|tool|app|website/.test(q)) return 'AI & Digital Services'
+  return 'GBK AI Marketplace'
+}
 
+function buildPlan(query: string, category: string) {
+  const q = query.toLowerCase()
+  const action = /\b(book|reserve|buy|purchase|rent|hire|sell|find|need|looking)\b/.test(q) ? 'Find and prepare options' : 'Understand and organize your request'
+  const needsConfirmation = /\b(book|reserve|buy|purchase|pay|rent|hire)\b/.test(q)
+  const steps = ['Understand your request', 'Search approved marketplace providers', 'Compare available options', needsConfirmation ? 'Ask you to confirm before any booking or payment' : 'Show matching options and next steps']
+  const missing: string[] = []
+  if (/book|reserve|dinner|restaurant|hotel/.test(q) && !/\b\d+\b/.test(q)) missing.push('date/time or party size, if relevant')
+  if (/under|budget|price/.test(q) && !/[₹$€£]\s?\d|\b\d+[kKlLmM]?\b/.test(q)) missing.push('budget')
+  if (/travel|trip|hotel|flight/.test(q) && !/\b(to|from|hyderabad|delhi|dubai|london|singapore)\b/.test(q)) missing.push('origin and destination')
+  return { action, category, steps, missing, needsConfirmation }
+}
+
+function fallbackAnswer(query: string, language: string, category: string) {
   const languageNote = language === 'en-US' ? '' : ` in ${language}`
   return `GBK AI Marketplace is ready to help${languageNote}. Your request is best matched with ${category}. Browse the marketplace results below for approved listings.`
 }
@@ -22,22 +35,18 @@ export async function POST(request: Request) {
     const language = String(body?.language || 'en-US').trim() || 'en-US'
     if (!query) return NextResponse.json({ error: 'Please enter a marketplace search.' }, { status: 400 })
 
+    const category = classify(query)
+    const plan = buildPlan(query, category)
     const endpoint = String(process.env.GBK_AI_API_URL || '').trim()
     const apiKey = process.env.GBK_AI_API_KEY
-
-    // ask.gbkai.com is the public GBK ASK application itself, not an upstream
-    // engine. Never call it from Marketplace or the request can loop back into
-    // the same application and produce a 508/server error.
     const isSelfEndpoint = /(^|:)\/\/ask\.gbkai\.com(\/|$)/i.test(endpoint)
 
     if (endpoint && !isSelfEndpoint) {
       const form = new FormData()
       form.append('message', `You are helping users search GBK AI Marketplace. User request: ${query}. Give a concise helpful marketplace-oriented response. Reply in the selected language (${language}). Do not invent specific businesses, prices, availability, or ratings.`)
       form.append('language', language)
-
       const headers: HeadersInit = {}
       if (apiKey) headers.Authorization = `Bearer ${apiKey}`
-
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 15000)
       try {
@@ -46,17 +55,13 @@ export async function POST(request: Request) {
         if (response.ok) {
           const answer = String(data?.answer || data?.message || data?.response || '').trim()
           if (answer && !/add GBK_AI_API_URL|interface is ready|connect your live AI engine/i.test(answer)) {
-            return NextResponse.json({ answer })
+            return NextResponse.json({ answer, plan, category })
           }
         }
-      } catch {
-        // Use the marketplace-safe response below if the external engine is unavailable.
-      } finally {
-        clearTimeout(timeout)
-      }
+      } catch {} finally { clearTimeout(timeout) }
     }
 
-    return NextResponse.json({ answer: fallbackAnswer(query, language), fallback: true })
+    return NextResponse.json({ answer: fallbackAnswer(query, language, category), plan, category, fallback: true })
   } catch {
     return NextResponse.json({ error: 'GBK AI Marketplace search could not be processed.' }, { status: 502 })
   }
