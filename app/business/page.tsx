@@ -5,7 +5,7 @@ import { submitListingRequest } from '../../lib/supabase'
 const categories=[['Food','🍴'],['Travel','🌍'],['Property','🏡'],['Services','🔧'],['Shopping','🛒'],['Digital','✨']]
 
 export default function BusinessPage(){
- const [form,setForm]=useState({business_name:'',category:'',city_country:'',contact:'',website:'',price_from:'',currency:'USD',description:''})
+ const [form,setForm]=useState<any>({business_name:'',category:'',city_country:'',contact:'',website:'',price_from:'',currency:'USD',description:''})
  const [message,setMessage]=useState(''); const [saving,setSaving]=useState(false)
  function update(k:string,v:string){setForm(x=>({...x,[k]:v}))}
  function enhance(){if(!form.business_name||!form.category)return;setForm(x=>({...x,title:x.business_name+' — '+x.category,description:x.description||`${x.business_name} provides ${x.category.toLowerCase()} products and services. Add your details and reach customers through GBK AI Marketplace.`} as any))}
