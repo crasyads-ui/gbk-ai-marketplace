@@ -1,0 +1,23 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { adminListPendingListings, adminUpdateListing, signIn } from '../../lib/supabase'
+
+export default function AdminPage(){
+ const [token,setToken]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[items,setItems]=useState<any[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(''),[loginBusy,setLoginBusy]=useState(false)
+ async function load(t:string){setError('');try{setItems(await adminListPendingListings(t))}catch(e){setError(e instanceof Error?e.message:'Admin access required.')}}
+ useEffect(()=>{const t=localStorage.getItem('gbk_marketplace_session')||'';if(t){setToken(t);load(t)}},[])
+ async function login(e:React.FormEvent){e.preventDefault();setLoginBusy(true);setError('');try{const r=await signIn(email,password);const t=r?.access_token||'';if(!t)throw new Error('Sign in did not return an access token.');localStorage.setItem('gbk_marketplace_session',t);localStorage.setItem('gbk_marketplace_email',email);setToken(t);await load(t)}catch(err){setError(err instanceof Error?err.message:'Unable to sign in.')}finally{setLoginBusy(false)}}
+ async function change(id:string,status:string,verified=false,featured=false){setBusy(id+status);setError('');try{await adminUpdateListing(id,status,verified,featured,token);await load(token)}catch(e){setError(e instanceof Error?e.message:'Unable to update listing.')}finally{setBusy('')}}
+ if(!token)return <main style={wrap}><header style={header}><a href="/">← GBK AI Marketplace</a></header><section style={card}><span style={eyebrow}>ADMIN</span><h1>Marketplace Admin</h1><p>Sign in with an authorized admin account to review pending listings.</p><form onSubmit={login} style={form}><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Admin email" style={input}/><input required type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" style={input}/><button disabled={loginBusy} style={primary}>{loginBusy?'Signing in…':'Sign in →'}</button>{error&&<p>{error}</p>}</form></section></main>
+ return <main style={wrap}><header style={header}><a href="/">← Marketplace</a><strong>GBK AI Marketplace Admin</strong><a href="/dashboard">Business Dashboard</a></header><section><span style={eyebrow}>ADMIN APPROVAL</span><h1>Pending Listings</h1><p>Review submitted businesses before they become publicly discoverable.</p>{error&&<div style={notice}>{error}</div>}{items.length===0?<div style={card}><h3>✓ No pending listings</h3><p>New business submissions will appear here.</p></div>:<div style={{display:'grid',gap:16}}>{items.map(x=><article key={x.id} style={card}><div style={{display:'flex',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}><div><span style={pill}>{x.status}</span><h2>{x.business_name}</h2><h3>{x.title}</h3><p>{x.description||'No description provided.'}</p><p><b>Location:</b> {x.city||'—'}{x.country?', '+x.country:''}</p><p><b>Contact:</b> {x.email||x.phone||'—'} {x.website&&<> · <a href={x.website} target="_blank" rel="noreferrer">Website ↗</a></>}</p>{x.price_from!=null&&<p><b>From:</b> {x.currency||'USD'} {x.price_from}</p>}</div><div style={{display:'flex',gap:8,alignItems:'flex-start',flexWrap:'wrap'}}><button disabled={!!busy} onClick={()=>change(x.id,'approved',true,false)} style={primary}>{busy===x.id+'approved'?'Approving…':'✓ Approve & Verify'}</button><button disabled={!!busy} onClick={()=>change(x.id,'approved',false,false)} style={secondary}>Approve</button><button disabled={!!busy} onClick={()=>change(x.id,'rejected')} style={secondary}>{busy===x.id+'rejected'?'Rejecting…':'Reject'}</button></div></div></article>)}</div>}</section></main>
+}
+const wrap={maxWidth:1100,margin:'0 auto',padding:24,fontFamily:'Arial,sans-serif'}
+const header={display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,marginBottom:36,flexWrap:'wrap' as const}
+const card={padding:24,border:'1px solid #dbe8e3',borderRadius:20,background:'#fff'}
+const eyebrow={letterSpacing:2,fontWeight:700}
+const form={display:'grid',gap:14,maxWidth:480,marginTop:24}
+const input={width:'100%',padding:14,border:'1px solid #ccdcd6',borderRadius:12,fontSize:16,boxSizing:'border-box' as const}
+const primary={padding:'12px 16px',border:0,borderRadius:12,fontWeight:700,cursor:'pointer'}
+const secondary={padding:'12px 16px',border:'1px solid #ccdcd6',borderRadius:12,background:'#fff',fontWeight:700,cursor:'pointer'}
+const notice={padding:14,borderRadius:12,background:'#fff4f0',margin:'16px 0'}
+const pill={display:'inline-block',padding:'5px 9px',borderRadius:99,background:'#fff3cd',fontSize:12,fontWeight:700,textTransform:'uppercase' as const}
