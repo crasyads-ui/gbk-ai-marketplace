@@ -15,7 +15,8 @@ const defaultTasks:Task[]=[
 {id:'sleep',time:'22:00',title:'Good night / sleep',category:'Wellness',status:'pending'}
 ]
 const profileKey='gbk_life_profile'
-const profileDefaults={wake:'06:00',sleep:'22:00',work:'',language:'English',home:'',food:'',transport:'',shopping:'',family:'',preferences:''}\nconst tripNeeds:[string,string,string][]=[
+const profileDefaults={wake:'06:00',sleep:'22:00',work:'',language:'English',home:'',food:'',transport:'',shopping:'',family:'',preferences:''}
+const tripNeeds:[string,string,string][]=[
 ['Before departure','✈️ Transport tickets','Book Hyderabad → Delhi travel and keep confirmation in one place.'],
 ['Before departure','🏨 Stay','Find and book accommodation near the destination.'],
 ['Before departure','🚕 Airport / station transfer','Arrange pickup and return transfer.'],
