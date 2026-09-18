@@ -32,7 +32,7 @@ function key(){return 'gbk_life_tasks'}
 export default function Life(){
  const [profile,setProfile]=useState<any>(profileDefaults),[request,setRequest]=useState(''),[generated,setGenerated]=useState(''),[profileSaved,setProfileSaved]=useState(false),[tasks,setTasks]=useState<Task[]>(defaultTasks),[route,setRoute]=useState('Hyderabad'),[destination,setDestination]=useState('Delhi'),[returnTo,setReturnTo]=useState('Hyderabad'),[trip,setTrip]=useState(false),[tripDate,setTripDate]=useState(''),[returnDate,setReturnDate]=useState(''),[custom,setCustom]=useState(''),[customTime,setCustomTime]=useState('10:00'),[alert,setAlert]=useState(false)
  useEffect(()=>{try{const p=JSON.parse(localStorage.getItem(profileKey)||'null');if(p)setProfile({...profileDefaults,...p});const x=JSON.parse(localStorage.getItem(key())||'null');if(Array.isArray(x))setTasks(x)}catch{}},[])
- useEffect(()=>{localStorage.setItem(key(),JSON.stringify(tasks));localStorage.setItem(profileKey,JSON.stringify(profile))},[tasks,profile]),[tasks])
+ useEffect(()=>{localStorage.setItem(key(),JSON.stringify(tasks));localStorage.setItem(profileKey,JSON.stringify(profile))},[tasks,profile])
  const done=tasks.filter(x=>x.status==='done').length
  function toggle(id:string){setTasks(v=>v.map(x=>x.id===id?{...x,status:x.status==='done'?'pending':'done'}:x))}
  function add(){if(!custom.trim())return;setTasks(v=>[...v,{id:crypto.randomUUID(),time:customTime,title:custom.trim(),category:'Personal',status:'pending' as const}].sort((a,b)=>a.time.localeCompare(b.time)));setCustom('')}
