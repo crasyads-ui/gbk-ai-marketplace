@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 
 function classify(query: string) {
   const q = query.toLowerCase()
+  if (/\b(cab|cabs|taxi|taxies|ride|rides|driver|airport transfer|car rental)\b/.test(q)) return 'Bookings'
   if (/restaurant|food|cafe|dining|meal|dinner|lunch/.test(q)) return 'Food & Restaurants'
-  if (/flight|hotel|travel|tour|holiday|trip|stay|airport|cab|taxi|restaurant booking|appointment|reserve|reservation|ticket|booking/.test(q)) return 'Bookings'
+  if (/flight|hotel|travel|tour|holiday|trip|stay|airport|restaurant booking|appointment|reserve|reservation|ticket|booking/.test(q)) return 'Bookings'
   if (/ship|shipping|courier|parcel|logistics|freight|delivery|pickup|tracking/.test(q)) return 'Shipping & Logistics'
   if (/learn|learning|education|course|tutor|english|pronunciation|grammar|study|skill/.test(q)) return 'Learning'
   if (/agri|agriculture|farm|farmer|crop|pest|disease|harvest|soil|weather.*crop/.test(q)) return 'Agriculture'
@@ -18,10 +19,17 @@ function classify(query: string) {
 
 function buildPlan(query: string, category: string) {
   const q = query.toLowerCase()
+  const isCab = /\b(cab|cabs|taxi|taxies|ride|rides|driver|airport transfer|car rental)\b/.test(q)
   const action = /\b(book|reserve|buy|purchase|rent|hire|sell|find|need|looking|send|ship|learn|diagnose|plan)\b/.test(q) ? 'Find, prepare and connect the right service' : 'Understand and organize your request'
   const needsConfirmation = /\b(book|reserve|buy|purchase|pay|rent|hire)\b/.test(q)
-  const steps = ['Understand your request', 'Route it to the relevant GBK AI tool', 'Search approved marketplace providers or connected live APIs when available', 'Compare available options and explain what is included', needsConfirmation ? 'Ask you to confirm before any booking or payment' : 'Show matching options and next steps']
+  const steps = isCab
+    ? ['Understand your cab request', 'Collect pickup and destination', 'Search verified cab owners when available', 'Show available options and contact/request actions', 'Ask you to confirm before sending a cab request']
+    : ['Understand your request', 'Route it to the relevant GBK AI tool', 'Search approved marketplace providers or connected live APIs when available', 'Compare available options and explain what is included', needsConfirmation ? 'Ask you to confirm before any booking or payment' : 'Show matching options and next steps']
   const missing: string[] = []
+  if (isCab) {
+    if (!/pickup|from|start|location|banjara|hyderabad/i.test(q)) missing.push('pickup location')
+    if (!/\b(to|destination|airport|station|drop)\b/i.test(q)) missing.push('destination')
+  }
   if (/book|reserve|dinner|restaurant|hotel/.test(q) && !/\b\d+\b/.test(q)) missing.push('date/time or party size, if relevant')
   if (/under|budget|price/.test(q) && !/[₹$€£]\s?\d|\b\d+[kKlLmM]?\b/.test(q)) missing.push('budget')
   if (/travel|trip|hotel|flight/.test(q) && !/\b(to|from|hyderabad|delhi|dubai|london|singapore)\b/.test(q)) missing.push('origin and destination')
@@ -30,6 +38,8 @@ function buildPlan(query: string, category: string) {
 
 function fallbackAnswer(query: string, language: string, category: string) {
   const languageNote = language === 'en-US' ? '' : ` in ${language}`
+  const isCab = /\b(cab|cabs|taxi|taxies|ride|rides|driver|airport transfer|car rental)\b/i.test(query)
+  if (isCab) return `GBK AI understands this as a cab request${languageNote}. Enter your pickup and destination to find verified cab owners when available. GBK does not automatically book or collect payment.`
   return `GBK AI Marketplace is ready to help${languageNote}. Your request is best matched with ${category}. Browse the marketplace results below for approved listings.`
 }
 
