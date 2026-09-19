@@ -48,6 +48,11 @@ export async function uploadMarketplacePhoto(file:File,listingId:string,token:st
 
 export async function adminListListings(token:string){const r=await supabaseRequest('/rest/v1/rpc/marketplace_admin_list_listings',{method:'POST',body:'{}'},token);return readJson(r)}
 
+export async function createMatchedMarketplaceLeads(data:any,token:string){
+ const r=await supabaseRequest('/rest/v1/rpc/marketplace_create_matched_leads',{method:'POST',body:JSON.stringify({p_request_text:String(data?.request_text||'').trim(),p_category:String(data?.category||'').trim(),p_city:String(data?.city||'').trim()||null,p_limit:Number(data?.limit||5)})},token);
+ return readJson(r);
+}
+
 export async function createMarketplaceLead(listingId:string,requestText:string,token:string){const r=await supabaseRequest('/rest/v1/rpc/marketplace_create_lead',{method:'POST',body:JSON.stringify({p_listing_id:listingId,p_request_text:requestText})},token);return readJson(r)}
 export async function setLeadMatching(listingId:string,enabled:boolean,token:string){const r=await supabaseRequest('/rest/v1/rpc/marketplace_owner_set_lead_matching',{method:'POST',body:JSON.stringify({p_listing_id:listingId,p_enabled:enabled})},token);return readJson(r)}
 export async function adminUpdateServiceVerification(id:string,verified:boolean,serviceVerified:boolean,leadMatching:boolean,token:string){const r=await supabaseRequest('/rest/v1/rpc/marketplace_admin_update_service_verification',{method:'POST',body:JSON.stringify({p_listing_id:id,p_verified:verified,p_service_verified:serviceVerified,p_lead_matching_enabled:leadMatching})},token);return readJson(r)}
