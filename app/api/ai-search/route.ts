@@ -6,6 +6,7 @@ function classify(query: string) {
   if (/hotel|travel|tour|flight|holiday|trip|stay|airport/.test(q)) return 'Travel & Tourism'
   if (/plot|property|real estate|house|land|rent|villa|apartment/.test(q)) return 'Real Estate'
   if (/repair|service|plumb|electric|clean|salon|ac|maintenance/.test(q)) return 'Local Services'
+  if (/local store|near me|kirana|grocery|pharmacy|bakery|clothing|fashion|electronics|mobile shop|furniture|hardware|jewellery|jewelry|gift shop|flower shop|pet shop/.test(q)) return 'Local Stores'
   if (/shop|store|product|buy|price|laptop|phone|computer/.test(q)) return 'Shopping'
   if (/ai|software|digital|tool|app|website/.test(q)) return 'AI & Digital Services'
   return 'GBK AI Marketplace'
