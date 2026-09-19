@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 function classify(query: string) {
   const q = query.toLowerCase()
   if (/restaurant|food|cafe|dining|meal|dinner|lunch/.test(q)) return 'Food & Restaurants'
-  if (/hotel|travel|tour|flight|holiday|trip|stay|airport/.test(q)) return 'Travel & Tourism'
+  if (/flight|hotel|travel|tour|holiday|trip|stay|airport|cab|taxi|restaurant booking|appointment|reserve|reservation|ticket|booking/.test(q)) return 'Bookings'
+  if (/ship|shipping|courier|parcel|logistics|freight|delivery|pickup|tracking/.test(q)) return 'Shipping & Logistics'
+  if (/learn|learning|education|course|tutor|english|pronunciation|grammar|study|skill/.test(q)) return 'Learning'
+  if (/agri|agriculture|farm|farmer|crop|pest|disease|harvest|soil|weather.*crop/.test(q)) return 'Agriculture'
+  if (/spiritual|prayer|meditation|scripture|mantra|temple|dharma|devotional/.test(q)) return 'Spiritual'
   if (/plot|property|real estate|house|land|rent|villa|apartment/.test(q)) return 'Real Estate'
   if (/repair|service|plumb|electric|clean|salon|ac|maintenance/.test(q)) return 'Local Services'
   if (/local store|near me|kirana|grocery|pharmacy|bakery|clothing|fashion|electronics|mobile shop|furniture|hardware|jewellery|jewelry|gift shop|flower shop|pet shop/.test(q)) return 'Local Stores'
@@ -14,9 +18,9 @@ function classify(query: string) {
 
 function buildPlan(query: string, category: string) {
   const q = query.toLowerCase()
-  const action = /\b(book|reserve|buy|purchase|rent|hire|sell|find|need|looking)\b/.test(q) ? 'Find and prepare options' : 'Understand and organize your request'
+  const action = /\b(book|reserve|buy|purchase|rent|hire|sell|find|need|looking|send|ship|learn|diagnose|plan)\b/.test(q) ? 'Find, prepare and connect the right service' : 'Understand and organize your request'
   const needsConfirmation = /\b(book|reserve|buy|purchase|pay|rent|hire)\b/.test(q)
-  const steps = ['Understand your request', 'Search approved marketplace providers', 'Compare available options', needsConfirmation ? 'Ask you to confirm before any booking or payment' : 'Show matching options and next steps']
+  const steps = ['Understand your request', 'Route it to the relevant GBK AI tool', 'Search approved marketplace providers or connected live APIs when available', 'Compare available options and explain what is included', needsConfirmation ? 'Ask you to confirm before any booking or payment' : 'Show matching options and next steps']
   const missing: string[] = []
   if (/book|reserve|dinner|restaurant|hotel/.test(q) && !/\b\d+\b/.test(q)) missing.push('date/time or party size, if relevant')
   if (/under|budget|price/.test(q) && !/[₹$€£]\s?\d|\b\d+[kKlLmM]?\b/.test(q)) missing.push('budget')
