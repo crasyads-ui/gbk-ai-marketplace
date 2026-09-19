@@ -43,5 +43,5 @@ export async function adminUpdateServiceVerification(id:string,verified:boolean,
 
 export async function getMyLeads(token:string){return readJson(await supabaseRequest('/rest/v1/marketplace_leads?select=*,marketplace_listings(business_name,title,city,country)&order=created_at.desc',{},token))}
 
-export async function searchCabOwners(city:string|null,lat?:number|null,lng?:number|null){const q=encodeURIComponent(JSON.stringify({p_city:city,p_lat:lat??null,p_lng:lng??null,p_limit:20}));return readJson(await supabaseRequest('/rest/v1/rpc/marketplace_cab_search',{method:'POST',body:q}))}
+export async function searchCabOwners(city:string|null,lat?:number|null,lng?:number|null){const body={p_city:city,p_lat:lat??null,p_lng:lng??null,p_limit:20};return readJson(await supabaseRequest('/rest/v1/rpc/marketplace_cab_search',{method:'POST',body:JSON.stringify(body)}))}
 export async function requestCabLead(cabOwnerId:string,pickup:string,destination:string){const token=typeof window!=='undefined'?localStorage.getItem('gbk_marketplace_session')||'':'';if(!token)throw new Error('Please sign in before requesting a cab.');return readJson(await supabaseRequest('/rest/v1/rpc/marketplace_cab_request_lead',{method:'POST',body:JSON.stringify({p_cab_owner_id:cabOwnerId,p_pickup:pickup,p_destination:destination})},token))}
