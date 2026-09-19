@@ -1,4 +1,4 @@
-const CACHE = 'gbk-marketplace-v2'
+const CACHE = 'gbk-marketplace-v3'
 const APP_SHELL = ['/']
 
 self.addEventListener('install', event => {
