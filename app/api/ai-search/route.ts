@@ -4,7 +4,10 @@ function classify(query: string) {
   const q = query.toLowerCase()
   if (/\b(cab|cabs|taxi|taxies|ride|rides|driver|airport transfer|car rental)\b/.test(q)) return 'Bookings'
   if (/restaurant|food|cafe|dining|meal|dinner|lunch/.test(q)) return 'Food & Restaurants'
-  if (/flight|hotel|travel|tour|holiday|trip|stay|airport|restaurant booking|appointment|reserve|reservation|ticket|booking/.test(q)) return 'Bookings'
+  // Keep travel-discovery requests in Travel & Tourism. Explicit booking/payment
+  // intent remains Bookings so searches like "book a flight" can be routed there.
+  if (/travel agency|travel agent|tour operator|tourism|tour package|holiday package|sightseeing|visa service|travel service|\btravel\b|\btour\b|\bholiday\b|\btrip\b/.test(q)) return 'Travel & Tourism'
+  if (/book|reserve|reservation|appointment|ticket|booking|purchase|pay|flight|hotel|stay|airport/.test(q)) return 'Bookings'
   if (/ship|shipping|courier|parcel|logistics|freight|delivery|pickup|tracking/.test(q)) return 'Shipping & Logistics'
   if (/learn|learning|education|course|tutor|english|pronunciation|grammar|study|skill/.test(q)) return 'Learning'
   if (/agri|agriculture|farm|farmer|crop|pest|disease|harvest|soil|weather.*crop/.test(q)) return 'Agriculture'
@@ -32,7 +35,7 @@ function buildPlan(query: string, category: string) {
   }
   if (/book|reserve|dinner|restaurant|hotel/.test(q) && !/\b\d+\b/.test(q)) missing.push('date/time or party size, if relevant')
   if (/under|budget|price/.test(q) && !/[₹$€£]\s?\d|\b\d+[kKlLmM]?\b/.test(q)) missing.push('budget')
-  if (/travel|trip|hotel|flight/.test(q) && !/\b(to|from|hyderabad|delhi|dubai|london|singapore)\b/.test(q)) missing.push('origin and destination')
+  if (/(travel|trip|hotel|flight)/.test(q) && !/travel agency|travel agent|tour operator|tourism|travel service/.test(q) && !/\b(to|from|hyderabad|delhi|dubai|london|singapore)\b/.test(q)) missing.push('origin and destination')
   return { action, category, steps, missing, needsConfirmation }
 }
 
