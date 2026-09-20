@@ -145,6 +145,25 @@ function discoveryTerm(query: string) {
   return query
 }
 
+function osmIncludeForQuery(query: string) {
+  const q = query.toLowerCase()
+  if (/travel agency|tour operator|tourism/.test(q)) return 'osm.office.travel_agent'
+  if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'osm.tourism.hotel,osm.tourism.hostel,osm.tourism.motel,osm.tourism.guest_house,osm.tourism.resort'
+  if (/restaurant|dining|meal|dinner/.test(q)) return 'osm.amenity.restaurant'
+  if (/cafe|coffee/.test(q)) return 'osm.amenity.cafe'
+  if (/bakery/.test(q)) return 'osm.shop.bakery'
+  if (/courier|shipping|parcel|logistics|freight|delivery/.test(q)) return 'osm.office.courier'
+  if (/pharmacy/.test(q)) return 'osm.amenity.pharmacy'
+  if (/grocery|supermarket|kirana/.test(q)) return 'osm.shop.supermarket'
+  if (/clothing|fashion/.test(q)) return 'osm.shop.clothes'
+  if (/electronics/.test(q)) return 'osm.shop.electronics'
+  if (/jewelry|jewellery/.test(q)) return 'osm.shop.jewelry'
+  if (/real estate|property|estate agent/.test(q)) return 'osm.office.estate_agent'
+  if (/salon|beauty/.test(q)) return 'osm.shop.beauty'
+  if (/car repair|auto repair|mechanic/.test(q)) return 'osm.shop.car_repair'
+  return ''
+}
+
 function yelpResults(data: any, query: string): DiscoveryResult[] {
   return Array.isArray(data?.businesses) ? data.businesses.map((b: any) => {
     const title = String(b?.name || 'Business').trim()
@@ -232,9 +251,11 @@ export async function POST(request: Request) {
         q: searchText,
         format: 'jsonv2',
         addressdetails: '1',
-        limit: '10',
+        limit: '20',
         'accept-language': String(body?.language || 'en').split('-')[0]
       })
+      const include = osmIncludeForQuery(query)
+      if (include) params.set('include', include)
       if (viewbox) {
         params.set('viewbox', viewbox)
         params.set('bounded', '1')
@@ -245,7 +266,7 @@ export async function POST(request: Request) {
       })
       const data = await response.json().catch(() => [])
       if (response.ok) {
-        const osmRows = openStreetMapResults(data, query)
+        const osmRows = openStreetMapResults(data, query).slice(0, 10)
         if (osmRows.length) {
           providers.push('openstreetmap')
           results.push(...osmRows)
