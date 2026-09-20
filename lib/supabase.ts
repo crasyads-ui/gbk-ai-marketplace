@@ -59,6 +59,42 @@ export async function setLeadMatching(listingId:string,enabled:boolean,token:str
 export async function adminUpdateServiceVerification(id:string,verified:boolean,serviceVerified:boolean,leadMatching:boolean,token:string){const r=await supabaseRequest('/rest/v1/rpc/marketplace_admin_update_service_verification',{method:'POST',body:JSON.stringify({p_listing_id:id,p_verified:verified,p_service_verified:serviceVerified,p_lead_matching_enabled:leadMatching})},token);return readJson(r)}
 
 export async function getMyLeads(token:string){return readJson(await supabaseRequest('/rest/v1/marketplace_leads?select=*,marketplace_listings(business_name,title,city,country)&order=created_at.desc',{},token))}
+export async function createBusinessClaim(data:any,token:string){
+ const userId=token?tokenUserId(token):null;
+ if(!token||!userId)throw new Error('Please sign in before submitting a business claim or partnership request.');
+ const payload={
+  user_id:userId,
+  action:String(data?.action||'claim'),
+  business_name:String(data?.business_name||'').trim(),
+  category:String(data?.category||'').trim()||null,
+  address:String(data?.address||'').trim()||null,
+  city:String(data?.city||'').trim()||null,
+  country:String(data?.country||'').trim()||null,
+  phone:String(data?.phone||'').trim()||null,
+  email:String(data?.email||'').trim()||null,
+  website:String(data?.website||'').trim()||null,
+  source:String(data?.source||'').trim()||null,
+  source_label:String(data?.source_label||'').trim()||null,
+  source_url:String(data?.source_url||'').trim()||null,
+  external_id:String(data?.external_id||'').trim()||null,
+  notes:String(data?.notes||'').trim()||null,
+  status:'pending'
+ };
+ if(!payload.business_name)throw new Error('Business name is required.');
+ if(!['claim','partner'].includes(payload.action))throw new Error('Invalid onboarding action.');
+ const r=await supabaseRequest('/rest/v1/marketplace_business_claims',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)},token);
+ return readJson(r).then((rows:any)=>rows?.[0]||rows);
+}
+export async function getMyBusinessClaims(token:string){
+ return readJson(await supabaseRequest('/rest/v1/marketplace_business_claims?select=*&order=created_at.desc',{},token));
+}
+export async function adminListBusinessClaims(token:string){
+ return readJson(await supabaseRequest('/rest/v1/marketplace_business_claims?select=*&order=created_at.desc',{},token));
+}
+export async function adminUpdateBusinessClaim(id:string,status:string,notes:string,token:string){
+ const r=await supabaseRequest('/rest/v1/rpc/marketplace_admin_update_claim',{method:'POST',body:JSON.stringify({p_claim_id:id,p_status:status,p_admin_notes:notes||null})},token);
+ return readJson(r);
+}
 
 export async function searchCabOwners(city:string|null,lat?:number|null,lng?:number|null){const body={p_city:city,p_lat:lat??null,p_lng:lng??null,p_limit:20};return readJson(await supabaseRequest('/rest/v1/rpc/marketplace_cab_search',{method:'POST',body:JSON.stringify(body)}))}
 export async function requestCabLead(cabOwnerId:string,pickup:string,destination:string){const token=typeof window!=='undefined'?localStorage.getItem('gbk_marketplace_session')||'':'';if(!token)throw new Error('Please sign in before requesting a cab.');return readJson(await supabaseRequest('/rest/v1/rpc/marketplace_cab_request_lead',{method:'POST',body:JSON.stringify({p_cab_owner_id:cabOwnerId,p_pickup:pickup,p_destination:destination})},token))}
