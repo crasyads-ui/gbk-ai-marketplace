@@ -195,6 +195,39 @@ export async function POST(request: Request) {
       const osmLocation = extractLocation(query, location)
       const term = discoveryTerm(query)
       const searchText = osmLocation ? `${term} ${osmLocation}` : term
+      const headers = {
+        'User-Agent': 'GBK-AI-Marketplace/1.4 (+https://market.gbkai.com; contact: info@gbkai.com)',
+        'Accept': 'application/json'
+      }
+
+      // When a city/country is present, first resolve that place and use its
+      // bounding box. This prevents searches like “hotel London” from
+      // returning unrelated businesses named “Hotel London” in other countries.
+      let viewbox = ''
+      if (osmLocation) {
+        try {
+          const geoParams = new URLSearchParams({
+            q: osmLocation,
+            format: 'jsonv2',
+            addressdetails: '1',
+            limit: '1',
+            'accept-language': String(body?.language || 'en').split('-')[0]
+          })
+          const geoResponse = await fetch(`https://nominatim.openstreetmap.org/search?${geoParams.toString()}`, {
+            headers,
+            next: { revalidate: 300 }
+          })
+          const geoData = await geoResponse.json().catch(() => [])
+          const bbox = Array.isArray(geoData) ? geoData[0]?.boundingbox : null
+          if (Array.isArray(bbox) && bbox.length === 4) {
+            const [south, north, west, east] = bbox.map((v:any) => String(v))
+            viewbox = [west, north, east, south].join(',')
+          }
+        } catch {
+          // Continue with a normal global search if location geocoding fails.
+        }
+      }
+
       const params = new URLSearchParams({
         q: searchText,
         format: 'jsonv2',
@@ -202,12 +235,13 @@ export async function POST(request: Request) {
         limit: '10',
         'accept-language': String(body?.language || 'en').split('-')[0]
       })
+      if (viewbox) {
+        params.set('viewbox', viewbox)
+        params.set('bounded', '1')
+      }
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-        headers: {
-          'User-Agent': 'GBK-AI-Marketplace/1.3 (+https://market.gbkai.com; contact: info@gbkai.com)',
-          'Accept': 'application/json'
-        },
-        cache: 'no-store'
+        headers,
+        next: { revalidate: 300 }
       })
       const data = await response.json().catch(() => [])
       if (response.ok) {
@@ -281,7 +315,8 @@ export async function POST(request: Request) {
       providerErrors,
       message: unique.length
         ? `Found ${unique.length} external global marketplace options.`
-        : 'No global matches were returned. Try a business type plus city/country, for example “courier Singapore” or “travel agency Hyderabad”.'
+        : 'No global matches were returned. Try a business type plus city/country, for example “courier Singapore” or “travel agency Hyderabad”.',
+      attribution: providers.includes('openstreetmap') ? '© OpenStreetMap contributors' : undefined
     })
   } catch {
     return NextResponse.json({ error: 'Global marketplace discovery failed.' }, { status: 502 })
