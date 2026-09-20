@@ -106,7 +106,7 @@ function extractLocation(query: string, explicitLocation: string) {
   // Also support natural searches such as “travel agency Hyderabad” where
   // the location is appended without the word “in”.
   const termPatterns = [
-    /travel agency|tour operator|tourism/i,
+    /travel agency|travel agent|tour operator|tourism/i,
     /hotel|resort|hostel|lodging|stay/i,
     /restaurant|food|dining|meal|dinner/i,
     /cafe|coffee/i,
@@ -119,7 +119,8 @@ function extractLocation(query: string, explicitLocation: string) {
     /jewelry|jewellery/i,
     /real estate|property|estate agent/i,
     /salon|beauty/i,
-    /car repair|auto repair|mechanic/i
+    /car repair|auto repair|mechanic/i,
+    /\b(?:book|booking|reserve|reservation)\b/i
   ]
   for (const pattern of termPatterns) {
     const location = query.replace(pattern, '').replace(/\s+/g, ' ').trim()
@@ -130,7 +131,10 @@ function extractLocation(query: string, explicitLocation: string) {
 
 function discoveryTerm(query: string) {
   const q = query.toLowerCase()
-  if (/travel agency|tour operator|tourism/.test(q)) return 'travel agency'
+  if (/hotel.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*hotel/.test(q)) return 'hotel'
+  if (/restaurant.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*restaurant/.test(q)) return 'restaurant'
+  if (/travel agency|travel agent|tour operator|tourism/.test(q)) return 'travel agency'
+  if (/\b(book|booking|reserve|reservation)\b/.test(q)) return 'travel agency'
   if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'hotel'
   if (/restaurant|food|dining|meal|dinner/.test(q)) return 'restaurant'
   if (/cafe|coffee/.test(q)) return 'cafe'
@@ -149,7 +153,10 @@ function discoveryTerm(query: string) {
 
 function osmIncludeForQuery(query: string) {
   const q = query.toLowerCase()
-  if (/travel agency|tour operator|tourism/.test(q)) return 'osm.office.travel_agent'
+  if (/hotel.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*hotel/.test(q)) return 'osm.tourism.hotel,osm.tourism.hostel,osm.tourism.motel,osm.tourism.guest_house,osm.tourism.resort'
+  if (/restaurant.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*restaurant/.test(q)) return 'osm.amenity.restaurant'
+  if (/travel agency|travel agent|tour operator|tourism/.test(q)) return 'osm.office.travel_agent'
+  if (/\b(book|booking|reserve|reservation)\b/.test(q)) return 'osm.office.travel_agent'
   if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'osm.tourism.hotel,osm.tourism.hostel,osm.tourism.motel,osm.tourism.guest_house,osm.tourism.resort'
   if (/restaurant|dining|meal|dinner/.test(q)) return 'osm.amenity.restaurant'
   if (/cafe|coffee/.test(q)) return 'osm.amenity.cafe'
@@ -213,9 +220,9 @@ export async function POST(request: Request) {
     // Search by business category + requested location so unrelated city/place
     // names are not returned as businesses.
     try {
-      const osmLocation = extractLocation(query, location)
+      const osmLocation = extractLocation(query, location).replace(/^\b(?:in|near|at)\b\s+/i, '').trim()
       const term = discoveryTerm(query)
-      const searchText = osmLocation ? `${term} ${osmLocation}` : term
+      const searchText = osmLocation ? term + ' ' + osmLocation : term
       const headers = {
         'User-Agent': 'GBK-AI-Marketplace/1.4 (+https://market.gbkai.com; contact: info@gbkai.com)',
         'Accept': 'application/json'
