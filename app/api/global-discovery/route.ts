@@ -60,6 +60,31 @@ function googleResults(data: any, query: string): DiscoveryResult[] {
   }) : []
 }
 
+function openStreetMapResults(data: any, query: string): DiscoveryResult[] {
+  return Array.isArray(data) ? data.map((p: any) => {
+    const title = String(p?.name || p?.display_name?.split(',')?.[0] || 'Place').trim()
+    const address = String(p?.display_name || '').trim()
+    const type = String(p?.type || p?.class || '').trim()
+    const lat = String(p?.lat || '').trim()
+    const lon = String(p?.lon || '').trim()
+    const url = lat && lon ? `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lon)}#map=18/${encodeURIComponent(lat)}/${encodeURIComponent(lon)}` : ''
+    return {
+      id: `osm:${String(p?.place_id || `${title}|${address}`)}`,
+      title,
+      text: address || `Discovered through OpenStreetMap for “${query}”.`,
+      category: inferCategory(query),
+      city: String(p?.address?.city || p?.address?.town || p?.address?.municipality || '').trim() || undefined,
+      country: String(p?.address?.country || '').trim() || undefined,
+      address,
+      url: url || undefined,
+      source: 'openstreetmap',
+      sourceLabel: 'OpenStreetMap',
+      external: true,
+      claimable: true
+    }
+  }) : []
+}
+
 function yelpResults(data: any, query: string): DiscoveryResult[] {
   return Array.isArray(data?.businesses) ? data.businesses.map((b: any) => {
     const title = String(b?.name || 'Business').trim()
@@ -102,6 +127,31 @@ export async function POST(request: Request) {
     const results: DiscoveryResult[] = []
     const providers: string[] = []
     const providerErrors: string[] = []
+
+    // OpenStreetMap is a no-key global fallback so discovery can work even
+    // when a commercial provider key is missing or temporarily invalid.
+    try {
+      const params = new URLSearchParams({
+        q: searchText,
+        format: 'jsonv2',
+        addressdetails: '1',
+        limit: '10',
+        'accept-language': String(body?.language || 'en').split('-')[0]
+      })
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        headers: { 'User-Agent': 'GBK-AI-Marketplace/1.0 (global discovery)' },
+        cache: 'no-store'
+      })
+      const data = await response.json().catch(() => [])
+      if (response.ok) {
+        providers.push('openstreetmap')
+        results.push(...openStreetMapResults(data, query))
+      } else {
+        providerErrors.push(`OpenStreetMap ${response.status}: global fallback request failed`)
+      }
+    } catch (error) {
+      providerErrors.push(`OpenStreetMap: ${error instanceof Error ? error.message : 'request failed'}`)
+    }
 
     if (googleKey) {
       providers.push('google_places')
@@ -157,9 +207,9 @@ export async function POST(request: Request) {
       configured: providers.length > 0,
       results: unique.slice(0, 20),
       providerErrors,
-      message: providers.length
-        ? (unique.length ? `Found ${unique.length} external marketplace options.` : (providerErrors.length ? providerErrors.join(' | ') : 'The connected discovery providers returned no matching businesses.'))
-        : 'No global discovery provider is configured yet. Add GOOGLE_PLACES_API_KEY or YELP_API_KEY in Vercel to enable real external business discovery.'
+      message: unique.length
+        ? `Found ${unique.length} external global marketplace options.`
+        : (providerErrors.length ? providerErrors.join(' | ') : 'No external global matches were returned. Try a more specific business, service, city, or country.')
     })
   } catch {
     return NextResponse.json({ error: 'Global marketplace discovery failed.' }, { status: 502 })
