@@ -61,27 +61,31 @@ function googleResults(data: any, query: string): DiscoveryResult[] {
 }
 
 function openStreetMapResults(data: any, query: string): DiscoveryResult[] {
-  const elements = Array.isArray(data?.elements) ? data.elements : []
-  return elements.map((p: any) => {
-    const tags = p?.tags || {}
-    const title = String(tags?.name || 'Place').trim()
-    const address = [
-      tags?.['addr:housenumber'],
-      tags?.['addr:street'],
-      tags?.['addr:city'],
-      tags?.['addr:state'],
-      tags?.['addr:country']
-    ].filter(Boolean).join(', ')
-    const lat = String(p?.lat ?? p?.center?.lat ?? '').trim()
-    const lon = String(p?.lon ?? p?.center?.lon ?? '').trim()
+  // Nominatim /search returns a top-level array of place objects (not an
+  // Overpass-style { elements: [] } response).
+  const places = Array.isArray(data) ? data : []
+  return places.map((p: any) => {
+    const addressParts = p?.address || {}
+    const title = String(p?.name || p?.display_name?.split(',')?.[0] || 'Place').trim()
+    const address = String(p?.display_name || [
+      addressParts?.house_number,
+      addressParts?.road,
+      addressParts?.city || addressParts?.town || addressParts?.village,
+      addressParts?.state,
+      addressParts?.country
+    ].filter(Boolean).join(', ') || '').trim()
+    const lat = String(p?.lat || '').trim()
+    const lon = String(p?.lon || '').trim()
     const url = lat && lon
       ? `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lon)}#map=18/${encodeURIComponent(lat)}/${encodeURIComponent(lon)}`
       : ''
     return {
-      id: `osm:${String(p?.type || 'node')}:${String(p?.id || `${title}|${address}`)}`,
+      id: `osm:${String(p?.osm_type || 'place')}:${String(p?.osm_id || `${title}|${address}`)}`,
       title,
       text: address || `Discovered through OpenStreetMap for “${query}”.`,
       category: inferCategory(query),
+      city: String(addressParts?.city || addressParts?.town || addressParts?.village || '').trim() || undefined,
+      country: String(addressParts?.country || '').trim() || undefined,
       address,
       url: url || undefined,
       source: 'openstreetmap',
@@ -95,7 +99,31 @@ function openStreetMapResults(data: any, query: string): DiscoveryResult[] {
 function extractLocation(query: string, explicitLocation: string) {
   if (explicitLocation) return explicitLocation.trim()
   const match = query.match(/\b(?:in|near|at)\s+(.+)$/i)
-  return match ? match[1].trim() : ''
+  if (match) return match[1].trim()
+
+  // Also support natural searches such as “travel agency Hyderabad” where
+  // the location is appended without the word “in”.
+  const termPatterns = [
+    /travel agency|tour operator|tourism/i,
+    /hotel|resort|hostel|lodging|stay/i,
+    /restaurant|food|dining|meal|dinner/i,
+    /cafe|coffee/i,
+    /bakery/i,
+    /courier|shipping|parcel|logistics|freight|delivery/i,
+    /pharmacy/i,
+    /grocery|supermarket|kirana/i,
+    /clothing|fashion/i,
+    /electronics/i,
+    /jewelry|jewellery/i,
+    /real estate|property|estate agent/i,
+    /salon|beauty/i,
+    /car repair|auto repair|mechanic/i
+  ]
+  for (const pattern of termPatterns) {
+    const location = query.replace(pattern, '').replace(/\s+/g, ' ').trim()
+    if (location && location.toLowerCase() !== query.toLowerCase()) return location
+  }
+  return ''
 }
 
 function discoveryTerm(query: string) {
