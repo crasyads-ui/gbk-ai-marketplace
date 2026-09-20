@@ -239,8 +239,10 @@ export async function POST(request: Request) {
         layer: 'poi',
         'accept-language': String(body?.language || 'en').split('-')[0]
       })
-      const include = osmIncludeForQuery(query)
-      if (include) params.set('include', include)
+      // Keep the public Nominatim request broad enough to find real POIs.
+      // Category filtering is applied by the query text and our business-class
+      // filter below. Overly strict OSM tag filters can hide valid businesses
+      // whose local OSM tagging differs.
       // Location is already part of searchText when supplied, so no second
       // geocoding request is needed here.
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
