@@ -158,7 +158,7 @@ export async function POST(request: Request) {
       results: unique.slice(0, 20),
       providerErrors,
       message: providers.length
-        ? (unique.length ? `Found ${unique.length} external marketplace options.` : 'The connected discovery providers returned no matching businesses.')
+        ? (unique.length ? `Found ${unique.length} external marketplace options.` : (providerErrors.length ? providerErrors.join(' | ') : 'The connected discovery providers returned no matching businesses.'))
         : 'No global discovery provider is configured yet. Add GOOGLE_PLACES_API_KEY or YELP_API_KEY in Vercel to enable real external business discovery.'
     })
   } catch {
