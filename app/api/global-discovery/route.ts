@@ -61,9 +61,11 @@ function googleResults(data: any, query: string): DiscoveryResult[] {
 }
 
 function openStreetMapResults(data: any, query: string): DiscoveryResult[] {
-  // Nominatim /search returns a top-level array of place objects (not an
-  // Overpass-style { elements: [] } response).
-  const places = Array.isArray(data) ? data : []
+  // This endpoint is a business/service discovery layer, so never expose
+  // cities, countries, streets or other address-only geocoding results as
+  // businesses. Nominatim's class field is its main OSM tag classification.
+  const businessClasses = new Set(['amenity','shop','tourism','office','craft','healthcare'])
+  const places = (Array.isArray(data) ? data : []).filter((p: any) => businessClasses.has(String(p?.class || '').toLowerCase()))
   return places.map((p: any) => {
     const addressParts = p?.address || {}
     const title = String(p?.name || p?.display_name?.split(',')?.[0] || 'Place').trim()
@@ -252,6 +254,7 @@ export async function POST(request: Request) {
         format: 'jsonv2',
         addressdetails: '1',
         limit: '20',
+        layer: 'poi',
         'accept-language': String(body?.language || 'en').split('-')[0]
       })
       const include = osmIncludeForQuery(query)
