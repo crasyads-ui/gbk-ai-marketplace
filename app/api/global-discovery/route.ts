@@ -228,34 +228,9 @@ export async function POST(request: Request) {
         'Accept': 'application/json'
       }
 
-      // When a city/country is present, first resolve that place and use its
-      // bounding box. This prevents searches like “hotel London” from
-      // returning unrelated businesses named “Hotel London” in other countries.
-      let viewbox = ''
-      if (osmLocation) {
-        try {
-          const geoParams = new URLSearchParams({
-            q: osmLocation,
-            format: 'jsonv2',
-            addressdetails: '1',
-            limit: '1',
-            'accept-language': String(body?.language || 'en').split('-')[0]
-          })
-          const geoResponse = await fetch(`https://nominatim.openstreetmap.org/search?${geoParams.toString()}`, {
-            headers,
-            next: { revalidate: 300 }
-          })
-          const geoData = await geoResponse.json().catch(() => [])
-          const bbox = Array.isArray(geoData) ? geoData[0]?.boundingbox : null
-          if (Array.isArray(bbox) && bbox.length === 4) {
-            const [south, north, west, east] = bbox.map((v:any) => String(v))
-            viewbox = [west, north, east, south].join(',')
-          }
-        } catch {
-          // Continue with a normal global search if location geocoding fails.
-        }
-      }
-
+      // Use a single user-triggered Nominatim search. The public Nominatim
+      // service asks clients to keep usage to at most one request per second;
+      // avoid a separate location-geocoding request for every marketplace search.
       const params = new URLSearchParams({
         q: searchText,
         format: 'jsonv2',
@@ -266,10 +241,8 @@ export async function POST(request: Request) {
       })
       const include = osmIncludeForQuery(query)
       if (include) params.set('include', include)
-      if (viewbox) {
-        params.set('viewbox', viewbox)
-        params.set('bounded', '1')
-      }
+      // Location is already part of searchText when supplied, so no second
+      // geocoding request is needed here.
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
         headers,
         next: { revalidate: 300 }
