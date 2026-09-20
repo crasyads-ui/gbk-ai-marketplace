@@ -94,25 +94,27 @@ function openStreetMapResults(data: any, query: string): DiscoveryResult[] {
 
 function extractLocation(query: string, explicitLocation: string) {
   if (explicitLocation) return explicitLocation.trim()
-  const match = query.match(/\\b(?:in|near|at)\\s+(.+)$/i)
+  const match = query.match(/\b(?:in|near|at)\s+(.+)$/i)
   return match ? match[1].trim() : ''
 }
 
-function osmOverpassFilter(query: string) {
+function discoveryTerm(query: string) {
   const q = query.toLowerCase()
-  if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'nwr["tourism"="hotel"];nwr["tourism"="hostel"];nwr["tourism"="resort"]'
-  if (/restaurant|food|dining|meal|dinner|bakery|cafe/.test(q)) return 'nwr["amenity"="restaurant"];nwr["amenity"="cafe"];nwr["shop"="bakery"]'
-  if (/travel agency|tour operator|tourism/.test(q)) return 'nwr["tourism"="travel_agency"]'
-  if (/courier|shipping|parcel|logistics|freight|delivery/.test(q)) return 'nwr["office"="courier"];nwr["office"="logistics"];nwr["amenity"="post_office"]'
-  if (/pharmacy/.test(q)) return 'nwr["amenity"="pharmacy"]'
-  if (/grocery|supermarket|kirana/.test(q)) return 'nwr["shop"="supermarket"];nwr["shop"="convenience"]'
-  if (/clothing|fashion/.test(q)) return 'nwr["shop"="clothes"]'
-  if (/electronics/.test(q)) return 'nwr["shop"="electronics"]'
-  if (/jewelry|jewellery/.test(q)) return 'nwr["shop"="jewelry"]'
-  if (/real estate|property|estate agent/.test(q)) return 'nwr["office"="estate_agent"]'
-  if (/salon|beauty/.test(q)) return 'nwr["shop"="hairdresser"];nwr["shop"="beauty"]'
-  if (/car repair|auto repair|mechanic/.test(q)) return 'nwr["shop"="car_repair"]'
-  return 'nwr["name"]'
+  if (/travel agency|tour operator|tourism/.test(q)) return 'travel agency'
+  if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'hotel'
+  if (/restaurant|food|dining|meal|dinner/.test(q)) return 'restaurant'
+  if (/cafe|coffee/.test(q)) return 'cafe'
+  if (/bakery/.test(q)) return 'bakery'
+  if (/courier|shipping|parcel|logistics|freight|delivery/.test(q)) return 'courier'
+  if (/pharmacy/.test(q)) return 'pharmacy'
+  if (/grocery|supermarket|kirana/.test(q)) return 'supermarket'
+  if (/clothing|fashion/.test(q)) return 'clothing store'
+  if (/electronics/.test(q)) return 'electronics store'
+  if (/jewelry|jewellery/.test(q)) return 'jewelry store'
+  if (/real estate|property|estate agent/.test(q)) return 'real estate agent'
+  if (/salon|beauty/.test(q)) return 'beauty salon'
+  if (/car repair|auto repair|mechanic/.test(q)) return 'car repair'
+  return query
 }
 
 function yelpResults(data: any, query: string): DiscoveryResult[] {
@@ -158,52 +160,38 @@ export async function POST(request: Request) {
     const providers: string[] = []
     const providerErrors: string[] = []
 
-    // Use OpenStreetMap's Overpass data for category-aware business discovery.
-    // This avoids returning unrelated place names such as a city called “Dubai”
-    // when the user asks for hotels in Dubai.
+    // OpenStreetMap/Nominatim live discovery fallback.
+    // Search by business category + requested location so unrelated city/place
+    // names are not returned as businesses.
     try {
       const osmLocation = extractLocation(query, location)
-      if (osmLocation) {
-        const geoParams = new URLSearchParams({
-          q: osmLocation,
-          format: 'jsonv2',
-          limit: '1',
-          'accept-language': String(body?.language || 'en').split('-')[0]
-        })
-        const geoResponse = await fetch(`https://nominatim.openstreetmap.org/search?${geoParams.toString()}`, {
-          headers: {
-            'User-Agent': 'GBK-AI-Marketplace/1.2 (+https://market.gbkai.com; contact: info@gbkai.com)',
-            'Accept': 'application/json'
-          },
-          cache: 'no-store'
-        })
-        const geo = await geoResponse.json().catch(() => [])
-        const point = Array.isArray(geo) ? geo[0] : null
-        const lat = Number(point?.lat)
-        const lon = Number(point?.lon)
-
-        if (Number.isFinite(lat) && Number.isFinite(lon)) {
-          const filter = osmOverpassFilter(query)
-          const overpassQuery = `[out:json][timeout:12];(${filter.split(';').map((item: string) => `node(around:25000,${lat},${lon})${item.slice(3)};way(around:25000,${lat},${lon})${item.slice(3)};relation(around:25000,${lat},${lon})${item.slice(3)};`).join('')});out center tags;`
-          const response = await fetch('https://overpass-api.de/api/interpreter', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'text/plain',
-              'User-Agent': 'GBK-AI-Marketplace/1.2 (+https://market.gbkai.com; contact: info@gbkai.com)'
-            },
-            body: overpassQuery,
-            cache: 'no-store'
-          })
-          const data = await response.json().catch(() => ({ elements: [] }))
-          if (response.ok) {
-            providers.push('openstreetmap')
-            results.push(...openStreetMapResults(data, query))
-          } else {
-            providerErrors.push(`OpenStreetMap ${response.status}: global fallback request failed`)
-          }
+      const term = discoveryTerm(query)
+      const searchText = osmLocation ? `${term} ${osmLocation}` : term
+      const params = new URLSearchParams({
+        q: searchText,
+        format: 'jsonv2',
+        addressdetails: '1',
+        limit: '10',
+        'accept-language': String(body?.language || 'en').split('-')[0]
+      })
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        headers: {
+          'User-Agent': 'GBK-AI-Marketplace/1.3 (+https://market.gbkai.com; contact: info@gbkai.com)',
+          'Accept': 'application/json'
+        },
+        cache: 'no-store'
+      })
+      const data = await response.json().catch(() => [])
+      if (response.ok) {
+        const osmRows = openStreetMapResults(data, query)
+        if (osmRows.length) {
+          providers.push('openstreetmap')
+          results.push(...osmRows)
         } else {
-          providerErrors.push('OpenStreetMap: could not locate the requested city or country')
+          providerErrors.push('OpenStreetMap: no matching global places found')
         }
+      } else {
+        providerErrors.push(`OpenStreetMap ${response.status}: global fallback request failed`)
       }
     } catch (error) {
       providerErrors.push(`OpenStreetMap: ${error instanceof Error ? error.message : 'request failed'}`)
