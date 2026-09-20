@@ -101,6 +101,7 @@ export async function POST(request: Request) {
     const yelpKey = String(process.env.YELP_API_KEY || '').trim()
     const results: DiscoveryResult[] = []
     const providers: string[] = []
+    const providerErrors: string[] = []
 
     if (googleKey) {
       providers.push('google_places')
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
           headers: {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': googleKey,
-            'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount'
+            'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress'
           },
           body: JSON.stringify({
             textQuery: searchText,
@@ -119,8 +120,12 @@ export async function POST(request: Request) {
           }),
           cache: 'no-store'
         })
-        if (response.ok) results.push(...googleResults(await response.json(), query))
-      } catch {}
+        const data = await response.json().catch(() => ({}))
+        if (response.ok) results.push(...googleResults(data, query))
+        else providerErrors.push(`Google Places ${response.status}: ${String(data?.error?.message || data?.error?.status || 'request failed')}`)
+      } catch (error) {
+        providerErrors.push(`Google Places: ${error instanceof Error ? error.message : 'request failed'}`)
+      }
     }
 
     if (yelpKey) {
@@ -131,8 +136,12 @@ export async function POST(request: Request) {
           headers: { Authorization: `Bearer ${yelpKey}` },
           cache: 'no-store'
         })
-        if (response.ok) results.push(...yelpResults(await response.json(), query))
-      } catch {}
+        const data = await response.json().catch(() => ({}))
+        if (response.ok) results.push(...yelpResults(data, query))
+        else providerErrors.push(`Yelp ${response.status}: ${String(data?.error?.description || data?.error?.code || 'request failed')}`)
+      } catch (error) {
+        providerErrors.push(`Yelp: ${error instanceof Error ? error.message : 'request failed'}`)
+      }
     }
 
     const unique = Array.from(new Map(results.map(r => [
@@ -147,6 +156,7 @@ export async function POST(request: Request) {
       providers,
       configured: providers.length > 0,
       results: unique.slice(0, 20),
+      providerErrors,
       message: providers.length
         ? (unique.length ? `Found ${unique.length} external marketplace options.` : 'The connected discovery providers returned no matching businesses.')
         : 'No global discovery provider is configured yet. Add GOOGLE_PLACES_API_KEY or YELP_API_KEY in Vercel to enable real external business discovery.'
