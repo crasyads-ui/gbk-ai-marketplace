@@ -128,18 +128,28 @@ export async function POST(request: Request) {
     const providers: string[] = []
     const providerErrors: string[] = []
 
-    // OpenStreetMap is a no-key global fallback so discovery can work even
-    // when a commercial provider key is missing or temporarily invalid.
+    // OpenStreetMap is a no-key place-search fallback. We deliberately keep
+    // this user-triggered and low-volume, and use one request per search.
     try {
+      const category = inferCategory(query)
+      const normalizedSearch = category === 'Shipping'
+        ? query.replace(/\b(courier|shipping|parcel|logistics|freight|delivery)\s+services?\b/ig, '$1').replace(/\s+in\s+/ig, ' ').trim()
+        : category === 'Travel'
+          ? query.replace(/\b(travel|tour|holiday)\s+(agency|operator)s?\b/ig, '$1 agency').replace(/\s+in\s+/ig, ' ').trim()
+          : query.replace(/\s+services?\s+in\s+/ig, ' ').trim()
+      const effectiveSearch = normalizedSearch || searchText
       const params = new URLSearchParams({
-        q: searchText,
+        q: effectiveSearch,
         format: 'jsonv2',
         addressdetails: '1',
         limit: '10',
         'accept-language': String(body?.language || 'en').split('-')[0]
       })
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-        headers: { 'User-Agent': 'GBK-AI-Marketplace/1.0 (global discovery)' },
+        headers: {
+          'User-Agent': 'GBK-AI-Marketplace/1.1 (+https://market.gbkai.com; contact: info@gbkai.com)',
+          'Accept': 'application/json'
+        },
         cache: 'no-store'
       })
       const data = await response.json().catch(() => [])
@@ -209,7 +219,7 @@ export async function POST(request: Request) {
       providerErrors,
       message: unique.length
         ? `Found ${unique.length} external global marketplace options.`
-        : (providerErrors.length ? providerErrors.join(' | ') : 'No external global matches were returned. Try a more specific business, service, city, or country.')
+        : 'No global matches were returned. Try a business type plus city/country, for example “courier Singapore” or “travel agency Hyderabad”.'
     })
   } catch {
     return NextResponse.json({ error: 'Global marketplace discovery failed.' }, { status: 502 })
