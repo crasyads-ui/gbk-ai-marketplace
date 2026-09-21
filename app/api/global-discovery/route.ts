@@ -22,23 +22,50 @@ type DiscoveryResult = {
 
 function inferCategory(query: string) {
   const q = query.toLowerCase()
-  if (/restaurant|food|cafe|dining|meal|dinner|bakery/.test(q)) return 'Food'
-  if (/hotel|travel|tour|holiday|flight|airport|stay|resort|hostel/.test(q)) return 'Travel'
-  if (/repair|service|plumb|electric|clean|salon|ac|maintenance|mechanic/.test(q)) return 'Services'
-  if (/grocery|kirana|pharmacy|clothing|fashion|electronics|furniture|jewellery|jewelry|store|shop|supermarket/.test(q)) return 'Stores'
+  if (/restaurant|food|cafe|dining|meal|dinner|bakery|pizza|bar/.test(q)) return 'Food'
+  if (/hotel|travel|tour|holiday|flight|airport|stay|resort|hostel|lodging/.test(q)) return 'Travel'
+  if (/repair|service|plumb|electric|clean|salon|ac|maintenance|mechanic|lawyer|doctor|dentist|clinic/.test(q)) return 'Services'
+  if (/grocery|kirana|pharmacy|clothing|fashion|electronics|furniture|jewellery|jewelry|store|shop|supermarket|shopping/.test(q)) return 'Stores'
   if (/shipping|courier|parcel|logistics|freight|delivery/.test(q)) return 'Shipping'
-  if (/plot|property|real estate|house|land|rent|villa|apartment/.test(q)) return 'Property'
+  if (/plot|property|real estate|house|land|rent|villa|apartment|estate agent/.test(q)) return 'Property'
+  if (/learn|learning|school|college|course|tutor|education|english/.test(q)) return 'Learning'
   return 'Marketplace'
 }
 
 function googleIncludedType(query: string) {
   const q = query.toLowerCase()
-  if (/restaurant|food|cafe|dining|meal|dinner|bakery/.test(q)) return 'restaurant'
-  if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'hotel'
+  if (/restaurant|food|dining|meal|dinner|pizza/.test(q)) return 'restaurant'
+  if (/cafe|coffee/.test(q)) return 'cafe'
+  if (/bakery/.test(q)) return 'bakery'
+  if (/hotel|lodging|stay/.test(q)) return 'hotel'
+  if (/resort/.test(q)) return 'resort_hotel'
+  if (/hostel/.test(q)) return 'hostel'
+  if (/travel agency|travel agent/.test(q)) return 'travel_agency'
+  if (/tour operator|tourism|tour agency/.test(q)) return 'tour_agency'
   if (/pharmacy/.test(q)) return 'pharmacy'
-  if (/grocery|supermarket|kirana|store|shop/.test(q)) return 'store'
+  if (/grocery/.test(q)) return 'grocery_store'
+  if (/supermarket/.test(q)) return 'supermarket'
+  if (/kirana/.test(q)) return 'convenience_store'
+  if (/clothing|fashion/.test(q)) return 'clothing_store'
+  if (/electronics/.test(q)) return 'electronics_store'
+  if (/furniture/.test(q)) return 'furniture_store'
+  if (/jewelry|jewellery/.test(q)) return 'jewelry_store'
   if (/salon|beauty/.test(q)) return 'beauty_salon'
   if (/car repair|auto repair|mechanic/.test(q)) return 'car_repair'
+  if (/courier/.test(q)) return 'courier_service'
+  if (/shipping|freight/.test(q)) return 'shipping_service'
+  if (/real estate|estate agent|property/.test(q)) return 'real_estate_agency'
+  if (/plumb/.test(q)) return 'plumber'
+  if (/electric/.test(q)) return 'electrician'
+  if (/lawyer|legal/.test(q)) return 'lawyer'
+  if (/doctor|physician/.test(q)) return 'doctor'
+  if (/dentist/.test(q)) return 'dentist'
+  if (/hospital/.test(q)) return 'hospital'
+  if (/clinic/.test(q)) return 'medical_clinic'
+  if (/school/.test(q)) return 'school'
+  if (/university|college/.test(q)) return 'university'
+  if (/gym|fitness/.test(q)) return 'gym'
+  if (/pet store/.test(q)) return 'pet_store'
   return ''
 }
 
@@ -72,10 +99,7 @@ function googleResults(data: any, query: string): DiscoveryResult[] {
 }
 
 function openStreetMapResults(data: any, query: string): DiscoveryResult[] {
-  // This endpoint is a business/service discovery layer, so never expose
-  // cities, countries, streets or other address-only geocoding results as
-  // businesses. Nominatim's class field is its main OSM tag classification.
-  const businessClasses = new Set(['amenity','shop','tourism','office','craft','healthcare'])
+  const businessClasses = new Set(['amenity','shop','tourism','office','craft','healthcare','leisure'])
   const places = (Array.isArray(data) ? data : []).filter((p: any) => businessClasses.has(String(p?.class || '').toLowerCase()))
   return places.map((p: any) => {
     const addressParts = p?.address || {}
@@ -113,13 +137,10 @@ function extractLocation(query: string, explicitLocation: string) {
   if (explicitLocation) return explicitLocation.trim()
   const match = query.match(/\b(?:in|near|at)\s+(.+)$/i)
   if (match) return match[1].trim()
-
-  // Also support natural searches such as “travel agency Hyderabad” where
-  // the location is appended without the word “in”.
   const termPatterns = [
-    /travel agency|travel agent|tour operator|tourism/i,
+    /travel agency|travel agent|tour operator|tourism|tour agency/i,
     /hotel|resort|hostel|lodging|stay/i,
-    /restaurant|food|dining|meal|dinner/i,
+    /restaurant|food|dining|meal|dinner|pizza/i,
     /cafe|coffee/i,
     /bakery/i,
     /courier|shipping|parcel|logistics|freight|delivery/i,
@@ -131,6 +152,9 @@ function extractLocation(query: string, explicitLocation: string) {
     /real estate|property|estate agent/i,
     /salon|beauty/i,
     /car repair|auto repair|mechanic/i,
+    /plumber|electrician|lawyer|doctor|dentist|hospital|clinic/i,
+    /school|university|college/i,
+    /gym|fitness/i,
     /\b(?:book|booking|reserve|reservation)\b/i
   ]
   for (const pattern of termPatterns) {
@@ -144,10 +168,9 @@ function discoveryTerm(query: string) {
   const q = query.toLowerCase()
   if (/hotel.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*hotel/.test(q)) return 'hotel'
   if (/restaurant.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*restaurant/.test(q)) return 'restaurant'
-  if (/travel agency|travel agent|tour operator|tourism/.test(q)) return 'travel agency'
-  if (/\b(book|booking|reserve|reservation)\b/.test(q)) return 'travel agency'
+  if (/travel agency|travel agent|tour operator|tourism|tour agency/.test(q)) return 'travel agency'
   if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'hotel'
-  if (/restaurant|food|dining|meal|dinner/.test(q)) return 'restaurant'
+  if (/restaurant|food|dining|meal|dinner|pizza/.test(q)) return 'restaurant'
   if (/cafe|coffee/.test(q)) return 'cafe'
   if (/bakery/.test(q)) return 'bakery'
   if (/courier|shipping|parcel|logistics|freight|delivery/.test(q)) return 'courier'
@@ -159,6 +182,17 @@ function discoveryTerm(query: string) {
   if (/real estate|property|estate agent/.test(q)) return 'real estate agent'
   if (/salon|beauty/.test(q)) return 'beauty salon'
   if (/car repair|auto repair|mechanic/.test(q)) return 'car repair'
+  if (/plumber/.test(q)) return 'plumber'
+  if (/electrician|electric/.test(q)) return 'electrician'
+  if (/lawyer|legal/.test(q)) return 'lawyer'
+  if (/doctor|physician/.test(q)) return 'doctor'
+  if (/dentist/.test(q)) return 'dentist'
+  if (/hospital/.test(q)) return 'hospital'
+  if (/clinic/.test(q)) return 'clinic'
+  if (/school|college|university|learning|learn/.test(q)) return 'school'
+  if (/gym|fitness/.test(q)) return 'gym'
+  if (/pet store/.test(q)) return 'pet store'
+  if (/shopping|shop|store/.test(q)) return 'store'
   return query
 }
 
@@ -166,10 +200,9 @@ function osmIncludeForQuery(query: string) {
   const q = query.toLowerCase()
   if (/hotel.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*hotel/.test(q)) return 'osm.tourism.hotel,osm.tourism.hostel,osm.tourism.motel,osm.tourism.guest_house,osm.tourism.resort'
   if (/restaurant.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*restaurant/.test(q)) return 'osm.amenity.restaurant'
-  if (/travel agency|travel agent|tour operator|tourism/.test(q)) return 'osm.office.travel_agent'
-  if (/\b(book|booking|reserve|reservation)\b/.test(q)) return 'osm.office.travel_agent'
+  if (/travel agency|travel agent|tour operator|tourism|tour agency/.test(q)) return 'osm.office.travel_agent'
   if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'osm.tourism.hotel,osm.tourism.hostel,osm.tourism.motel,osm.tourism.guest_house,osm.tourism.resort'
-  if (/restaurant|food|dining|meal|dinner/.test(q)) return 'osm.amenity.restaurant'
+  if (/restaurant|food|dining|meal|dinner|pizza/.test(q)) return 'osm.amenity.restaurant'
   if (/cafe|coffee/.test(q)) return 'osm.amenity.cafe'
   if (/bakery/.test(q)) return 'osm.shop.bakery'
   if (/courier|shipping|parcel|logistics|freight|delivery/.test(q)) return 'osm.office.courier'
@@ -217,6 +250,9 @@ export async function POST(request: Request) {
     if (!query) return NextResponse.json({ error: 'Please enter what you need.' }, { status: 400 })
 
     const location = String(body?.location || '').trim()
+    const latitude = Number(body?.latitude)
+    const longitude = Number(body?.longitude)
+    const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180
     const searchText = location && !query.toLowerCase().includes(location.toLowerCase())
       ? `${query} near ${location}`
       : query
@@ -227,23 +263,19 @@ export async function POST(request: Request) {
     const providers: string[] = []
     const providerErrors: string[] = []
 
-    // OpenStreetMap/Nominatim live discovery fallback.
-    // Search by business category + requested location so unrelated city/place
-    // names are not returned as businesses.
+    // OpenStreetMap/Nominatim is a user-triggered fallback, not the primary
+    // commercial directory. Keep it to one request per user search and obey
+    // the public service's usage policy.
     try {
       const osmLocation = extractLocation(query, location).replace(/^\b(?:in|near|at)\b\s+/i, '').trim()
       const term = discoveryTerm(query)
-      const searchText = osmLocation ? term + ' ' + osmLocation : term
+      const osmSearchText = osmLocation ? term + ' ' + osmLocation : term
       const headers = {
-        'User-Agent': 'GBK-AI-Marketplace/1.4 (+https://market.gbkai.com; contact: info@gbkai.com)',
+        'User-Agent': 'GBK-AI-Marketplace/1.5 (+https://market.gbkai.com; contact: info@gbkai.com)',
         'Accept': 'application/json'
       }
-
-      // Use a single user-triggered Nominatim search. The public Nominatim
-      // service asks clients to keep usage to at most one request per second;
-      // avoid a separate location-geocoding request for every marketplace search.
       const params = new URLSearchParams({
-        q: searchText,
+        q: osmSearchText,
         format: 'jsonv2',
         addressdetails: '1',
         limit: '20',
@@ -251,12 +283,14 @@ export async function POST(request: Request) {
         'accept-language': String(body?.language || 'en').split('-')[0]
       })
       const osmInclude = osmIncludeForQuery(query)
-      if (osmInclude) params.set('include', osmInclude)
-      // Use Nominatim category filtering when the user's request maps
-      // cleanly to an OSM category. This improves generic searches such as
-      // "Food" -> restaurants while keeping broader queries unfiltered.
-      // Location is already part of searchText when supplied, so no second
-      // geocoding request is needed here.
+      // Category filters are strongest when the user supplied a location.
+      // For broad global searches such as "Food", leave the filter off so
+      // Nominatim can still return its best POI matches instead of zero rows.
+      if (osmInclude && (osmLocation || location || hasCoordinates)) params.set('include', osmInclude)
+      if (hasCoordinates && !osmLocation && !location) {
+        const delta = 0.25
+        params.set('viewbox', `${longitude-delta},${latitude+delta},${longitude+delta},${latitude-delta}`)
+      }
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
         headers,
         next: { revalidate: 300 }
@@ -268,10 +302,10 @@ export async function POST(request: Request) {
           providers.push('openstreetmap')
           results.push(...osmRows)
         } else {
-          providerErrors.push('OpenStreetMap: no matching global places found')
+          providerErrors.push('OpenStreetMap: no matching POIs found')
         }
       } else {
-        providerErrors.push(`OpenStreetMap ${response.status}: global fallback request failed`)
+        providerErrors.push(`OpenStreetMap ${response.status}: fallback request failed`)
       }
     } catch (error) {
       providerErrors.push(`OpenStreetMap: ${error instanceof Error ? error.message : 'request failed'}`)
@@ -280,6 +314,21 @@ export async function POST(request: Request) {
     if (googleKey) {
       providers.push('google_places')
       try {
+        const googleBody:any = {
+          textQuery: searchText,
+          pageSize: 20,
+          languageCode: String(body?.language || 'en')
+        }
+        const includedType = googleIncludedType(query)
+        if (includedType) googleBody.includedType = includedType
+        if (hasCoordinates && !/\b(?:in|near|at)\b/i.test(query)) {
+          googleBody.locationBias = {
+            circle: {
+              center: { latitude, longitude },
+              radius: 50000
+            }
+          }
+        }
         const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
           method: 'POST',
           headers: {
@@ -287,12 +336,7 @@ export async function POST(request: Request) {
             'X-Goog-Api-Key': googleKey,
             'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount'
           },
-          body: JSON.stringify({
-            textQuery: searchText,
-            pageSize: 10,
-            languageCode: String(body?.language || 'en'),
-            ...(googleIncludedType(query) ? { includedType: googleIncludedType(query) } : {})
-          }),
+          body: JSON.stringify(googleBody),
           cache: 'no-store'
         })
         const data = await response.json().catch(() => ({}))
@@ -324,17 +368,22 @@ export async function POST(request: Request) {
       r
     ])).values())
 
+    const commercialConfigured = Boolean(googleKey || yelpKey)
+    const fallbackConfigured = providers.includes('openstreetmap')
     return NextResponse.json({
       query,
       searchText,
       category: inferCategory(query),
       providers,
-      configured: providers.length > 0,
+      configured: commercialConfigured || fallbackConfigured,
+      commercialConfigured,
       results: unique.slice(0, 20),
       providerErrors,
       message: unique.length
-        ? `Found ${unique.length} external global marketplace options.`
-        : 'No global matches were returned. Try a business type plus city/country, for example “courier Singapore” or “travel agency Hyderabad”.',
+        ? `Found ${unique.length} live external marketplace options.`
+        : commercialConfigured
+          ? 'No live matches were returned. Try a business type plus city/country, for example “restaurants Hyderabad”, “courier Singapore”, or “travel agency Dubai”.'
+          : 'Live global commercial search needs a configured business directory provider. OpenStreetMap is available as a fallback for user-triggered POI searches.',
       attribution: providers.includes('openstreetmap') ? '© OpenStreetMap contributors' : undefined
     })
   } catch {
