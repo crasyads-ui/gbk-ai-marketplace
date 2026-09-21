@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import InstallPWA from './InstallPWA'
 import { aiMarketplaceSearch, getApprovedListings, signIn, signUp, resetPassword, submitListingRequest, searchCabOwners, requestCabLead, submitCabOwnerApplication, createMatchedMarketplaceLeads, createMarketplaceLead, createBusinessClaim } from '../lib/supabase'
 
@@ -25,8 +25,9 @@ function categoryTag(name:string){
 }
 
 export default function Home(){
+ const searchSeqRef=useRef(0);
  const [query,setQuery]=useState(''),[filter,setFilter]=useState('All'),[showBusiness,setShowBusiness]=useState(false),[showCabs,setShowCabs]=useState(false),[nearMeStatus,setNearMeStatus]=useState(''),[showAuth,setShowAuth]=useState(false),[submitted,setSubmitted]=useState(false),[authMode,setAuthMode]=useState<'signin'|'signup'>('signin'),[authMessage,setAuthMessage]=useState(''),[liveListings,setLiveListings]=useState<any[]>([]),[userEmail,setUserEmail]=useState(''),[aiAnswer,setAiAnswer]=useState(''),[aiLoading,setAiLoading]=useState(false),[aiError,setAiError]=useState(''),[aiPlan,setAiPlan]=useState<any>(null),[requestStatus,setRequestStatus]=useState(''),[requestSending,setRequestSending]=useState(false),[listening,setListening]=useState(false),[voiceError,setVoiceError]=useState(''),[speaking,setSpeaking]=useState(false),[selectedLanguage,setSelectedLanguage]=useState('en-US'),[voiceGender,setVoiceGender]=useState<'female'|'male'>('female'),[voiceAlerts,setVoiceAlerts]=useState(true),[greetingSpoken,setGreetingSpoken]=useState(false),[globalResultCount,setGlobalResultCount]=useState(0),[claimOpen,setClaimOpen]=useState(false),[claimAction,setClaimAction]=useState<'claim'|'partner'>('claim'),[claimBusiness,setClaimBusiness]=useState<any>(null),[claimSubmitting,setClaimSubmitting]=useState(false),[claimStatus,setClaimStatus]=useState(''),[globalConfigured,setGlobalConfigured]=useState(false),[globalMessage,setGlobalMessage]=useState(''),[globalAttribution,setGlobalAttribution]=useState(''),[providerSearchStatus,setProviderSearchStatus]=useState(''),[userLatitude,setUserLatitude]=useState<number|null>(null),[userLongitude,setUserLongitude]=useState<number|null>(null)
- useEffect(()=>{getApprovedListings().then(setLiveListings).catch(()=>setLiveListings([]));setUserEmail(localStorage.getItem('gbk_marketplace_email')||'');setVoiceGender((localStorage.getItem('gbk_voice_gender') as 'female'|'male')||'female');setVoiceAlerts(localStorage.getItem('gbk_voice_alerts')!=='off')},[])
+ useEffect(()=>{getApprovedListings().then(rows=>{if(searchSeqRef.current===0)setLiveListings(rows)}).catch(()=>{if(searchSeqRef.current===0)setLiveListings([])});setUserEmail(localStorage.getItem('gbk_marketplace_email')||'');setVoiceGender((localStorage.getItem('gbk_voice_gender') as 'female'|'male')||'female');setVoiceAlerts(localStorage.getItem('gbk_voice_alerts')!=='off')},[])
  useEffect(()=>{const params=new URLSearchParams(window.location.search);const q=params.get('q');if(q){setQuery(q);runAiSearch(q)}if(params.get('auth')==='signin'){setAuthMode('signin');setShowAuth(true);window.history.replaceState({},'',window.location.pathname)}},[])
  const filtered=useMemo(()=>{const q=query.trim().toLowerCase();const externalRows=liveListings.filter((x:any)=>x?.external);const real=liveListings.map((x:any)=>{if(x?.external){return {icon:'📍',title:x.title||'Business',text:x.text||x.address||'Live global discovery result.',tag:x.category||'Marketplace',keywords:[x.title,x.text,x.address,x.city,x.country].filter(Boolean).join(' '),image_url:x.image_url,id:x.id,external:true,sourceLabel:x.sourceLabel,url:x.url,rating:x.rating,review_count:x.review_count}}return {icon:'📍',title:x.title||x.business_name,text:x.description||`Discover ${x.business_name} in ${x.city||x.country||'your area'}.`,tag:categoryTag(x.marketplace_categories?.name||''),keywords:`${x.business_name||''} ${x.title||''} ${x.city||''} ${x.country||''}`,image_url:x.image_url,id:x.id}}).filter((x:any)=>(filter==='All'||x.tag===filter)&&matchesSearch(`${x.title} ${x.text} ${x.keywords}`,q));const localApproved=real.filter((x:any)=>!x.external);const showCategoryFallback=!q;const localCategory=showCategoryFallback?listings.filter(x=>(filter==='All'||x.tag===filter)&&matchesSearch(`${x.title} ${x.text} ${x.keywords}`,q)):[];return [...localApproved,...real.filter((x:any)=>x.external),...localCategory]},[query,filter,liveListings])
  const scrollToExplore=()=>document.getElementById('explore')?.scrollIntoView({behavior:'smooth'})
@@ -37,6 +38,8 @@ export default function Home(){
  async function runAiSearch(text=query){
   const q=text.trim();
   if(!q)return;
+  const requestId=++searchSeqRef.current;
+  setLiveListings([]);
   setAiLoading(true);
   setAiError('');
   setAiAnswer('');
@@ -58,6 +61,7 @@ export default function Home(){
   }).then(async r=>{
     const d=await r.json();
     if(!r.ok)throw new Error(d?.error||'GBK AI search failed');
+    if(searchSeqRef.current!==requestId)return '';
     setAiPlan(d.plan||null);
     if(d.category&&d.category!=='GBK AI Marketplace')setFilter('All');
     return d.answer||'';
@@ -72,6 +76,7 @@ export default function Home(){
 
   localPromise.then((rows:any[])=>{
     const localRows=Array.isArray(rows)?rows:[];
+    if(searchSeqRef.current!==requestId)return;
     if(localRows.length)setProviderSearchStatus('Live GBK providers found — AI is organizing your results…');
     setLiveListings(prev=>[...prev.filter((x:any)=>x?.external),...localRows]);
     if(localRows.length)scrollToExplore();
@@ -79,6 +84,7 @@ export default function Home(){
 
   externalPromise.then((d:any)=>{
     const externalRows=Array.isArray(d?.results)?d.results:[];
+    if(searchSeqRef.current!==requestId)return;
     setGlobalResultCount(externalRows.length);
     setGlobalConfigured(Boolean(d?.configured));
     setGlobalMessage(String(d?.message||''));
@@ -92,14 +98,18 @@ export default function Home(){
 
   try{
     const ai=await aiPromise;
+    if(searchSeqRef.current!==requestId)return;
     setAiAnswer(ai);
     if(isCabRequest)setShowCabs(true);
   }catch(err){
-    setAiError(err instanceof Error?err.message:'GBK AI search is unavailable right now.');
+    if(searchSeqRef.current!==requestId)setAiLoading(false);
+    else setAiError(err instanceof Error?err.message:'GBK AI search is unavailable right now.');
   }finally{
-    setAiLoading(false);
-    setProviderSearchStatus(prev=>prev||'');
-    scrollToExplore();
+    if(searchSeqRef.current===requestId){
+      setAiLoading(false);
+      setProviderSearchStatus(prev=>prev||'');
+      scrollToExplore();
+    }
   }
 }
  async function sendRequirementToBusinesses(){
