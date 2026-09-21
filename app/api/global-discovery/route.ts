@@ -20,8 +20,53 @@ type DiscoveryResult = {
   claimable: boolean
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\\brestaurants\\b/g, 'restaurant')
+    .replace(/\\btravel agencies\\b/g, 'travel agency')
+    .replace(/\\btravel agents\\b/g, 'travel agent')
+    .replace(/\\btour agencies\\b/g, 'tour agency')
+    .replace(/\\btour operators\\b/g, 'tour operator')
+    .replace(/\\bhotels\\b/g, 'hotel')
+    .replace(/\\bresorts\\b/g, 'resort')
+    .replace(/\\bhostels\\b/g, 'hostel')
+    .replace(/\\bcafes\\b/g, 'cafe')
+    .replace(/\\bbakeries\\b/g, 'bakery')
+    .replace(/\\bpharmacies\\b/g, 'pharmacy')
+    .replace(/\\bgrocery stores\\b/g, 'grocery')
+    .replace(/\\bsupermarkets\\b/g, 'supermarket')
+    .replace(/\\bclothing stores\\b/g, 'clothing store')
+    .replace(/\\belectronics stores\\b/g, 'electronics store')
+    .replace(/\\bfurniture stores\\b/g, 'furniture store')
+    .replace(/\\bjewellery stores\\b/g, 'jewelry store')
+    .replace(/\\bjewelry stores\\b/g, 'jewelry store')
+    .replace(/\\bbeauty salons\\b/g, 'beauty salon')
+    .replace(/\\bcar repairs\\b/g, 'car repair')
+    .replace(/\\bcourier services\\b/g, 'courier')
+    .replace(/\\bshipping services\\b/g, 'shipping')
+    .replace(/\\breal estate agents\\b/g, 'real estate agent')
+    .replace(/\\bestate agents\\b/g, 'estate agent')
+    .replace(/\\bplumbers\\b/g, 'plumber')
+    .replace(/\\belectricians\\b/g, 'electrician')
+    .replace(/\\blawyers\\b/g, 'lawyer')
+    .replace(/\\bdoctors\\b/g, 'doctor')
+    .replace(/\\bdentists\\b/g, 'dentist')
+    .replace(/\\bhospitals\\b/g, 'hospital')
+    .replace(/\\bclinics\\b/g, 'clinic')
+    .replace(/\\bschools\\b/g, 'school')
+    .replace(/\\buniversities\\b/g, 'university')
+    .replace(/\\bcolleges\\b/g, 'college')
+    .replace(/\\bgyms\\b/g, 'gym')
+    .replace(/\\bstores\\b/g, 'store')
+    .replace(/\\bshops\\b/g, 'shop')
+    .replace(/\\bservices\\b/g, 'service')
+    .replace(/\\s+/g, ' ')
+    .trim()
+}
+
 function inferCategory(query: string) {
-  const q = query.toLowerCase()
+  const q = normalizeSearchText(query)
   if (/restaurant|food|cafe|dining|meal|dinner|bakery|pizza|bar/.test(q)) return 'Food'
   if (/hotel|travel|tour|holiday|flight|airport|stay|resort|hostel|lodging/.test(q)) return 'Travel'
   if (/repair|service|plumb|electric|clean|salon|ac|maintenance|mechanic|lawyer|doctor|dentist|clinic/.test(q)) return 'Services'
@@ -33,7 +78,7 @@ function inferCategory(query: string) {
 }
 
 function googleIncludedType(query: string) {
-  const q = query.toLowerCase()
+  const q = normalizeSearchText(query)
   if (/restaurant|food|dining|meal|dinner|pizza/.test(q)) return 'restaurant'
   if (/cafe|coffee/.test(q)) return 'cafe'
   if (/bakery/.test(q)) return 'bakery'
@@ -165,7 +210,7 @@ function extractLocation(query: string, explicitLocation: string) {
 }
 
 function discoveryTerm(query: string) {
-  const q = query.toLowerCase()
+  const q = normalizeSearchText(query)
   if (/hotel.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*hotel/.test(q)) return 'hotel'
   if (/restaurant.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*restaurant/.test(q)) return 'restaurant'
   if (/travel agency|travel agent|tour operator|tourism|tour agency/.test(q)) return 'travel agency'
@@ -197,7 +242,7 @@ function discoveryTerm(query: string) {
 }
 
 function osmIncludeForQuery(query: string) {
-  const q = query.toLowerCase()
+  const q = normalizeSearchText(query)
   if (/hotel.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*hotel/.test(q)) return 'osm.tourism.hotel,osm.tourism.hostel,osm.tourism.motel,osm.tourism.guest_house,osm.tourism.resort'
   if (/restaurant.*(book|booking|reserve|reservation)|\b(book|booking|reserve|reservation)\b.*restaurant/.test(q)) return 'osm.amenity.restaurant'
   if (/travel agency|travel agent|tour operator|tourism|tour agency/.test(q)) return 'osm.office.travel_agent'
@@ -246,7 +291,8 @@ function yelpResults(data: any, query: string): DiscoveryResult[] {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}))
-    const query = String(body?.query || '').trim()
+    const rawQuery = String(body?.query || '').trim()
+    const query = normalizeSearchText(rawQuery)
     if (!query) return NextResponse.json({ error: 'Please enter what you need.' }, { status: 400 })
 
     const location = String(body?.location || '').trim()
@@ -369,13 +415,14 @@ export async function POST(request: Request) {
     ])).values())
 
     const commercialConfigured = Boolean(googleKey || yelpKey)
-    const fallbackConfigured = providers.includes('openstreetmap')
+    const fallbackConfigured = providers.includes('openstreetmap') || providerErrors.some(x => x.startsWith('OpenStreetMap'))
     return NextResponse.json({
       query,
       searchText,
       category: inferCategory(query),
       providers,
       configured: commercialConfigured || fallbackConfigured,
+      rawQuery,
       commercialConfigured,
       results: unique.slice(0, 20),
       providerErrors,
