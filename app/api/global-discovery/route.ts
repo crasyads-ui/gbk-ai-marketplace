@@ -23,12 +23,23 @@ type DiscoveryResult = {
 function inferCategory(query: string) {
   const q = query.toLowerCase()
   if (/restaurant|food|cafe|dining|meal|dinner|bakery/.test(q)) return 'Food'
-  if (/hotel|travel|tour|holiday|flight|airport|stay/.test(q)) return 'Travel'
-  if (/repair|service|plumb|electric|clean|salon|ac|maintenance/.test(q)) return 'Services'
-  if (/grocery|kirana|pharmacy|clothing|fashion|electronics|furniture|jewellery|jewelry|store|shop/.test(q)) return 'Stores'
+  if (/hotel|travel|tour|holiday|flight|airport|stay|resort|hostel/.test(q)) return 'Travel'
+  if (/repair|service|plumb|electric|clean|salon|ac|maintenance|mechanic/.test(q)) return 'Services'
+  if (/grocery|kirana|pharmacy|clothing|fashion|electronics|furniture|jewellery|jewelry|store|shop|supermarket/.test(q)) return 'Stores'
   if (/shipping|courier|parcel|logistics|freight|delivery/.test(q)) return 'Shipping'
   if (/plot|property|real estate|house|land|rent|villa|apartment/.test(q)) return 'Property'
   return 'Marketplace'
+}
+
+function googleIncludedType(query: string) {
+  const q = query.toLowerCase()
+  if (/restaurant|food|cafe|dining|meal|dinner|bakery/.test(q)) return 'restaurant'
+  if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'hotel'
+  if (/pharmacy/.test(q)) return 'pharmacy'
+  if (/grocery|supermarket|kirana|store|shop/.test(q)) return 'store'
+  if (/salon|beauty/.test(q)) return 'beauty_salon'
+  if (/car repair|auto repair|mechanic/.test(q)) return 'car_repair'
+  return ''
 }
 
 function googleResults(data: any, query: string): DiscoveryResult[] {
@@ -158,7 +169,7 @@ function osmIncludeForQuery(query: string) {
   if (/travel agency|travel agent|tour operator|tourism/.test(q)) return 'osm.office.travel_agent'
   if (/\b(book|booking|reserve|reservation)\b/.test(q)) return 'osm.office.travel_agent'
   if (/hotel|resort|hostel|lodging|stay/.test(q)) return 'osm.tourism.hotel,osm.tourism.hostel,osm.tourism.motel,osm.tourism.guest_house,osm.tourism.resort'
-  if (/restaurant|dining|meal|dinner/.test(q)) return 'osm.amenity.restaurant'
+  if (/restaurant|food|dining|meal|dinner/.test(q)) return 'osm.amenity.restaurant'
   if (/cafe|coffee/.test(q)) return 'osm.amenity.cafe'
   if (/bakery/.test(q)) return 'osm.shop.bakery'
   if (/courier|shipping|parcel|logistics|freight|delivery/.test(q)) return 'osm.office.courier'
@@ -239,10 +250,11 @@ export async function POST(request: Request) {
         layer: 'poi',
         'accept-language': String(body?.language || 'en').split('-')[0]
       })
-      // Keep the public Nominatim request broad enough to find real POIs.
-      // Category filtering is applied by the query text and our business-class
-      // filter below. Overly strict OSM tag filters can hide valid businesses
-      // whose local OSM tagging differs.
+      const osmInclude = osmIncludeForQuery(query)
+      if (osmInclude) params.set('include', osmInclude)
+      // Use Nominatim category filtering when the user's request maps
+      // cleanly to an OSM category. This improves generic searches such as
+      // "Food" -> restaurants while keeping broader queries unfiltered.
       // Location is already part of searchText when supplied, so no second
       // geocoding request is needed here.
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
@@ -273,12 +285,13 @@ export async function POST(request: Request) {
           headers: {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': googleKey,
-            'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress'
+            'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount'
           },
           body: JSON.stringify({
             textQuery: searchText,
-            maxResultCount: 10,
-            languageCode: String(body?.language || 'en')
+            pageSize: 10,
+            languageCode: String(body?.language || 'en'),
+            ...(googleIncludedType(query) ? { includedType: googleIncludedType(query) } : {})
           }),
           cache: 'no-store'
         })
